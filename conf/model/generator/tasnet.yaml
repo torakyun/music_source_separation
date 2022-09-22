@@ -1,0 +1,7 @@
+name: Tasnet
+params:
+  X: 8
+sources: ${dataset.sources}
+audio_channels: ${dataset.audio_channels}
+samplerate: ${dataset.samplerate}
+samples: ${dataset.samples}

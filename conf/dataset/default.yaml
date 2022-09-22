@@ -1,0 +1,30 @@
+# dataset
+raw:
+  path:
+musdb:
+  path: "../musdb18"
+  is_wav: false
+  metadata: "../out/metadata"
+wav:
+  path:
+  concat: true
+
+# audio params
+sources:
+  - drums
+  - bass
+  - other
+  - vocals
+samplerate: 44100
+audio_channels: 2
+samples: 441000 # samplerate * 10s
+data_stride: 44100 # samplerate * 1s
+norm_wav: true
+
+# augument
+augment: true
+repitch: 0.2
+max_tempo: 12
+remix_group_size: 4
+shifts: 10
+overlap: 0.25

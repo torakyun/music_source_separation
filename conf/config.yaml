@@ -1,0 +1,43 @@
+defaults:
+  - outdir: default
+  - device: default
+  - dataset: default
+  - model/generator: demucs
+
+# Training option
+test:
+test_pretrained:
+restart: false
+seed: 42
+epochs: 180
+repeat: 2
+batch_size: 64
+batch_divide: 1
+lr: 0.0003
+init: false
+split_valid: false
+
+# Loss
+auxiliary_loss: L1Loss
+
+# Other options
+show: false # Show model architecture, size and exit
+save: false # Save estimated for the test set waveforms
+save_model: false # Skip traning, just save final model for the current checkpoint value.
+save_state: false # Skip training, just save state for the current checkpoint value. You should provide a model name as argument.
+half: false # When saving the model, uses half precision.
+
+# Quantization options
+q-min-size: 1 # Only quantize layers over this size (in MB)
+qat: # If provided, use QAT training with that many bits.
+diffq: 0
+ms_target: 162 # Model size target in MB, when using DiffQ. Best model will be kept only if it is smaller than this target.
+
+# hydra
+hydra:
+  run:
+    dir: ../outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+# num:
+#   example1: 1
+#   example2: 2
+# name: ${num.example1}_${num.example2}
