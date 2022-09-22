@@ -23,7 +23,7 @@ from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .pretrained import load_pretrained, SOURCES
 from .test import evaluate
-from .train import train_model, validate_model
+from .train import train_model, validate_model, Trainer
 from .utils import (human_seconds, load_model, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
@@ -146,20 +146,29 @@ def main():
         model.load_state_dict(saved.last_state, strict=False)
     if saved.optimizer is not None:
         optimizer.load_state_dict(saved.optimizer)
+    trainer = Trainer(
+        model={"generator": dmodel},
+        optimizer={"generator": optimizer},
+        config=cfg
+    )
+    try:
+        trainer.load_checkpoint(checkpoint)
+    except IOError:
+        pass
 
     model_name = f"{name}.th"
     if args.save_model:
         if args.rank == 0:
             model.to("cpu")
-            assert saved.best_state is not None, "model needs to train for 1 epoch at least."
-            model.load_state_dict(saved.best_state)
             save_model(model, quantizer, args, args.models / model_name)
+            assert trainer.best_state is not None, "model needs to train for 1 epoch at least."
+            model.load_state_dict(trainer.best_state)
         return
     elif args.save_state:
         model_name = f"{args.save_state}.th"
         if args.rank == 0:
             model.to("cpu")
-            model.load_state_dict(saved.best_state)
+            model.load_state_dict(trainer.best_state)
             state = get_state(model, quantizer)
             save_state(state, args.models / model_name)
         return
@@ -224,7 +233,7 @@ def main():
             max_tempo=args.max_tempo)
 
     best_loss = float("inf")
-    for epoch, metrics in enumerate(saved.metrics):
+    for epoch, metrics in enumerate(trainer.metrics):
         print(f"Epoch {epoch:03d}: "
               f"train={metrics['train']:.8f} "
               f"valid={metrics['valid']:.8f} "
@@ -241,7 +250,7 @@ def main():
     else:
         dmodel = model
 
-    for epoch in range(len(saved.metrics), args.epochs):
+    for epoch in range(len(trainer.metrics), cfg.epochs):
         begin = time.time()
         model.train()
         train_loss, model_size = train_model(
@@ -273,12 +282,12 @@ def main():
         duration = time.time() - begin
         if valid_loss < best_loss and ms <= args.ms_target:
             best_loss = valid_loss
-            saved.best_state = {
+            trainer.best_state = {
                 key: value.to("cpu").clone()
                 for key, value in model.state_dict().items()
             }
 
-        saved.metrics.append({
+        trainer.metrics.append({
             "train": train_loss,
             "valid": valid_loss,
             "best": best_loss,
@@ -288,12 +297,13 @@ def main():
             "compressed_model_size": cms,
         })
         if args.rank == 0:
-            json.dump(saved.metrics, open(metrics_path, "w"))
+            json.dump(trainer.metrics, open(metrics_path, "w"))
 
         saved.last_state = model.state_dict()
         saved.optimizer = optimizer.state_dict()
         if args.rank == 0 and not args.test:
             th.save(saved, checkpoint_tmp)
+            trainer.save_checkpoint(checkpoint_tmp)
             checkpoint_tmp.rename(checkpoint)
 
         print(f"Epoch {epoch:03d}: "
@@ -305,8 +315,8 @@ def main():
         distributed.barrier()
 
     del dmodel
-    model.load_state_dict(saved.best_state)
     if args.eval_cpu:
+    model.load_state_dict(trainer.best_state)
         device = "cpu"
         model.to(device)
     model.eval()

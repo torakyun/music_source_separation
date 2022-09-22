@@ -4,13 +4,106 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import sys
 
+# from tensorboardX import SummaryWriter
+
 import tqdm
+import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from .utils import apply_model, average_metric, center_trim
+
+
+class Trainer(object):
+    """Customized trainer module for Demucs training."""
+
+    def __init__(
+        self,
+        model,
+        optimizer,
+        config,
+        device=torch.device("cpu"),
+    ):
+        """Initialize trainer.
+
+        Args:
+            model (dict): Dict of models. It must contrain "generator" and "discriminator" models.
+            best_state (dict): Dict of best generator's state.
+            optimizer (dict): Dict of optimizers. It must contrain "generator" and "discriminator" optimizers.
+            metrics (list): List of metrics. It must contrain "train" and "valid", "best", "duration", "model_size", "true_model_size", "compressed_model_size" models.
+            device (torch.deive): Pytorch device instance.
+
+        """
+        self.metrics = []
+        self.model = model
+        self.best_state = None
+        self.optimizer = optimizer
+        self.config = config
+        self.device = device
+        # self.writer = SummaryWriter(config["outdir"])
+
+    def save_checkpoint(self, checkpoint_path):
+        """Save checkpoint.
+
+        Args:
+            checkpoint_path (str): Checkpoint path to be saved.
+
+        """
+        state_dict = {
+            "metrics": self.metrics,
+            "optimizer": {
+                "generator": self.optimizer["generator"].state_dict(),
+            },
+        }
+        if self.config.device.world_size > 1:
+            state_dict["model"] = {
+                "generator": self.model["generator"].module.state_dict(),
+            }
+            if self.config.use_adv:
+                state_dict["optimizer"]["discriminator"] = self.optimizer["discriminator"].state_dict()
+        else:
+            state_dict["model"] = {
+                "generator": self.model["generator"].state_dict(),
+            }
+        if self.config.use_adv:
+            state_dict["optimizer"]["discriminator"] = self.optimizer["discriminator"].state_dict()
+            state_dict["model"]["discriminator"] = self.model["discriminator"].module.state_dict(
+            ) if self.config["distributed"] else self.model["discriminator"].state_dict()
+
+        if not os.path.exists(os.path.dirname(checkpoint_path)):
+            os.makedirs(os.path.dirname(checkpoint_path))
+        torch.save(state_dict, checkpoint_path)
+
+    def load_checkpoint(self, checkpoint_path, load_only_params=False):
+        """Load checkpoint.
+
+        Args:
+            checkpoint_path (str): Checkpoint path to be loaded.
+            load_only_params (bool): Whether to load only model parameters.
+
+        """
+        state_dict = torch.load(checkpoint_path, map_location="cpu")
+        if self.config.device.world_size > 1:
+            self.model["generator"].module.load_state_dict(state_dict["model"]["generator"])
+        else:
+            self.model["generator"].load_state_dict(state_dict["model"]["generator"])
+        if self.config.use_adv:
+            if self.config.device.world_size > 1:
+                self.model["discriminator"].module.load_state_dict(
+                    state_dict["model"]["discriminator"])
+            else:
+                self.model["discriminator"].load_state_dict(state_dict["model"]["discriminator"])
+        if not load_only_params:
+            self.metrics = state_dict["metrics"]
+            self.optimizer["generator"].load_state_dict(
+                state_dict["optimizer"]["generator"]
+            )
+            if self.config.use_adv:
+                self.optimizer["discriminator"].load_state_dict(
+                    state_dict["optimizer"]["discriminator"])
 
 
 def train_model(epoch,
