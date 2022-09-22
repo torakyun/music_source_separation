@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+from pathlib import Path
 from fractions import Fraction
 from concurrent import futures
 
@@ -92,24 +93,24 @@ def _build_musdb_metadata(path, musdb, workers):
     json.dump(metadata, open(path, "w"))
 
 
-def get_compressed_datasets(args, samples):
-    metadata_file = args.metadata / "musdb.json"
-    if not metadata_file.is_file() and args.rank == 0:
-        _build_musdb_metadata(metadata_file, args.musdb, args.workers)
-    if args.world_size > 1:
+def get_compressed_datasets(cfg, samples):
+    metadata_file = Path(cfg.outdir.out) / cfg.dataset.musdb.metadata / "musdb.json"
+    if not metadata_file.is_file() and cfg.device.rank == 0:
+        _build_musdb_metadata(metadata_file, cfg.dataset.musdb.path, cfg.device.workers)
+    if cfg.device.world_size > 1:
         distributed.barrier()
     metadata = json.load(open(metadata_file))
-    duration = Fraction(samples, args.samplerate)
-    stride = Fraction(args.data_stride, args.samplerate)
-    train_set = StemsSet(get_musdb_tracks(args.musdb, subsets=["train"], split="train"),
+    duration = Fraction(samples, cfg.dataset.samplerate)
+    stride = Fraction(cfg.dataset.data_stride, cfg.dataset.samplerate)
+    train_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="train"),
                          metadata,
                          duration=duration,
                          stride=stride,
                          streams=slice(1, None),
-                         samplerate=args.samplerate,
-                         channels=args.audio_channels)
-    valid_set = StemsSet(get_musdb_tracks(args.musdb, subsets=["train"], split="valid"),
+                         samplerate=cfg.dataset.samplerate,
+                         channels=cfg.dataset.audio_channels)
+    valid_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="valid"),
                          metadata,
-                         samplerate=args.samplerate,
-                         channels=args.audio_channels)
+                         samplerate=cfg.dataset.samplerate,
+                         channels=cfg.dataset.audio_channels)
     return train_set, valid_set

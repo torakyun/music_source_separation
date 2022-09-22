@@ -134,46 +134,47 @@ class Wavset:
             return example
 
 
-def get_wav_datasets(args, samples, sources):
-    sig = hashlib.sha1(str(args.wav).encode()).hexdigest()[:8]
-    metadata_file = args.metadata / (sig + ".json")
-    train_path = args.wav / "train"
-    valid_path = args.wav / "valid"
-    if not metadata_file.is_file() and args.rank == 0:
+def get_wav_datasets(cfg, samples, sources):
+    sig = hashlib.sha1(str(cfg.dataset.wav.path).encode()).hexdigest()[:8]
+    metadata_file = Path(cfg.outdir.out) / cfg.dataset.musdb.metadata / (sig + ".json")
+    train_path = cfg.dataset.wav.path / "train"
+    valid_path = cfg.dataset.wav.path / "valid"
+    if not metadata_file.is_file() and cfg.device.rank == 0:
         train = _build_metadata(train_path, sources)
         valid = _build_metadata(valid_path, sources)
         json.dump([train, valid], open(metadata_file, "w"))
-    if args.world_size > 1:
+    if cfg.device.world_size > 1:
         distributed.barrier()
     train, valid = json.load(open(metadata_file))
     train_set = Wavset(train_path, train, sources,
-                       length=samples, stride=args.data_stride,
-                       samplerate=args.samplerate, channels=args.audio_channels,
-                       normalize=args.norm_wav)
+                       length=samples, stride=cfg.dataset.data_stride,
+                       samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
+                       normalize=cfg.dataset.norm_wav)
     valid_set = Wavset(valid_path, valid, [MIXTURE] + sources,
-                       samplerate=args.samplerate, channels=args.audio_channels,
-                       normalize=args.norm_wav)
+                       samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
+                       normalize=cfg.dataset.norm_wav)
     return train_set, valid_set
 
 
-def get_musdb_wav_datasets(args, samples, sources):
-    metadata_file = args.metadata / "musdb_wav.json"
-    root = args.musdb / "train"
-    if not metadata_file.is_file() and args.rank == 0:
+def get_musdb_wav_datasets(cfg, samples, sources):
+    metadata_file = Path(cfg.outdir.out) / cfg.dataset.musdb.metadata / "musdb_wav.json"
+    root = cfg.dataset.musdb.path / "train"
+    if not metadata_file.is_file() and cfg.device.rank == 0:
         metadata = _build_metadata(root, sources)
         json.dump(metadata, open(metadata_file, "w"))
-    if args.world_size > 1:
+    if cfg.device.world_size > 1:
         distributed.barrier()
     metadata = json.load(open(metadata_file))
 
-    train_tracks = get_musdb_tracks(args.musdb, is_wav=True, subsets=["train"], split="train")
+    train_tracks = get_musdb_tracks(cfg.dataset.musdb.path, is_wav=True,
+                                    subsets=["train"], split="train")
     metadata_train = {name: meta for name, meta in metadata.items() if name in train_tracks}
     metadata_valid = {name: meta for name, meta in metadata.items() if name not in train_tracks}
     train_set = Wavset(root, metadata_train, sources,
-                       length=samples, stride=args.data_stride,
-                       samplerate=args.samplerate, channels=args.audio_channels,
-                       normalize=args.norm_wav)
+                       length=samples, stride=cfg.dataset.data_stride,
+                       samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
+                       normalize=cfg.dataset.norm_wav)
     valid_set = Wavset(root, metadata_valid, [MIXTURE] + sources,
-                       samplerate=args.samplerate, channels=args.audio_channels,
-                       normalize=args.norm_wav)
+                       samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
+                       normalize=cfg.dataset.norm_wav)
     return train_set, valid_set

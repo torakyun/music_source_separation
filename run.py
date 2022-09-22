@@ -22,7 +22,8 @@ def main():
     gpus = th.cuda.device_count()
 
     port = free_port()
-    args += ["--world_size", str(gpus), "--master", f"127.0.0.1:{port}"]
+    name = "|".join(args) if args else "default"
+    args += [f"+name=\"{name}\"", f"+device.world_size={gpus}", f"+device.master=127.0.0.1:{port}"]
     tasks = []
 
     for gpu in range(gpus):
@@ -31,7 +32,8 @@ def main():
             kwargs['stdin'] = sp.DEVNULL
             kwargs['stdout'] = sp.DEVNULL
             # We keep stderr to see tracebacks from children.
-        tasks.append(sp.Popen(["python3", "-m", "demucs"] + args + ["--rank", str(gpu)], **kwargs))
+        tasks.append(sp.Popen(["python3", "-m", "demucs"] +
+                              args + [f"+device.rank={gpu}"], **kwargs))
         tasks[-1].rank = gpu
 
     failed = False

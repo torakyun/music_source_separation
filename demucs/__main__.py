@@ -10,6 +10,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import torch as th
 from torch import distributed, nn
@@ -18,10 +19,9 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 
 from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
-from .parser import get_name, get_parser
 from .raw import Rawset
 from .repitch import RepitchedWrapper
-from .pretrained import load_pretrained, SOURCES
+from .pretrained import load_pretrained
 from .test import evaluate
 from .train import train_model, validate_model, Trainer
 from .utils import (human_seconds, load_model, save_model, get_state,
@@ -41,68 +41,75 @@ from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
 from .losses import MultiResolutionSTFTLoss
 
+from omegaconf import DictConfig, OmegaConf
+import hydra
 
-def main():
-    parser = get_parser()
-    args = parser.parse_args()
-    name = get_name(parser, args)
+
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def main(cfg):
+    OmegaConf.set_struct(cfg, False)
+    name = cfg.name
     print(f"Experiment {name}")
 
-    if args.musdb is None and args.rank == 0:
+    if cfg.dataset.musdb.path is None and cfg.device.rank == 0:
         print(
             "You must provide the path to the MusDB dataset with the --musdb flag. "
             "To download the MusDB dataset, see https://sigsep.github.io/datasets/musdb.html.",
             file=sys.stderr)
         sys.exit(1)
 
-    eval_folder = args.evals / name
+    out = Path(cfg.outdir.out)
+    eval_folder = out / cfg.outdir.evals / name
     eval_folder.mkdir(exist_ok=True, parents=True)
-    args.logs.mkdir(exist_ok=True)
-    metrics_path = args.logs / f"{name}.json"
+    log_folder = out / cfg.outdir.logs
+    log_folder.mkdir(exist_ok=True)
+    metrics_path = out / cfg.outdir.logs / f"{name}.json"
     eval_folder.mkdir(exist_ok=True, parents=True)
-    args.checkpoints.mkdir(exist_ok=True, parents=True)
-    args.models.mkdir(exist_ok=True, parents=True)
+    checkpoint_folder = out / cfg.outdir.checkpoints
+    checkpoint_folder.mkdir(exist_ok=True, parents=True)
+    checkpoint = checkpoint_folder / f"{name}.th"
+    checkpoint_tmp = checkpoint_folder / f"{name}.th.tmp"
+    if cfg.restart and checkpoint.exists() and cfg.device.rank == 0:
+        checkpoint.unlink()
+    model_folder = out / cfg.outdir.models
+    model_folder.mkdir(exist_ok=True, parents=True)
 
-    if args.device is None:
-        device = "cpu"
-        if th.cuda.is_available():
-            device = "cuda"
-    else:
-        device = args.device
-
-    th.manual_seed(args.seed)
+    th.manual_seed(cfg.seed)
     # Prevents too many threads to be started when running `museval` as it can be quite
     # inefficient on NUMA architectures.
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
 
-    if args.world_size > 1:
-        if device != "cuda" and args.rank == 0:
+    if cfg.device.device is None:
+        device = "cpu"
+        if th.cuda.is_available():
+            device = "cuda"
+    else:
+        device = cfg.device.device
+    cfg.device.distributed = cfg.device.world_size > 1
+    if cfg.device.distributed:
+        if device != "cuda" and cfg.device.rank == 0:
             print("Error: distributed training is only available with cuda device", file=sys.stderr)
             sys.exit(1)
-        th.cuda.set_device(args.rank % th.cuda.device_count())
+        th.cuda.set_device(cfg.device.rank % th.cuda.device_count())
         distributed.init_process_group(backend="nccl",
-                                       init_method="tcp://" + args.master,
-                                       rank=args.rank,
-                                       world_size=args.world_size)
+                                       init_method="tcp://" + cfg.device.master,
+                                       rank=cfg.device.rank,
+                                       world_size=cfg.device.world_size)
 
-    checkpoint = args.checkpoints / f"{name}.th"
-    checkpoint_tmp = args.checkpoints / f"{name}.th.tmp"
-    if args.restart and checkpoint.exists() and args.rank == 0:
-        checkpoint.unlink()
-
-    if args.test or args.test_pretrained:
-        args.epochs = 1
-        args.repeat = 0
-        if args.test:
-            model = load_model(args.models / args.test)
+    # define models
+    if cfg.test or cfg.test_pretrained:
+        cfg.epochs = 1
+        cfg.repeat = 0
+        if cfg.test:
+            model = load_model(model_folder / cfg.test).to(device)
         else:
-            model = load_pretrained(args.test_pretrained)
     elif args.tasnet:
         model = ConvTasNet(audio_channels=args.audio_channels,
                            samplerate=args.samplerate, X=args.X,
                            segment_length=4 * args.samples,
                            sources=SOURCES)
+            model = load_pretrained(cfg.test_pretrained).to(device)
     else:
         model = Demucs(
             audio_channels=args.audio_channels,
@@ -122,11 +129,10 @@ def main():
             segment_length=4 * args.samples,
             sources=SOURCES,
         )
-    model.to(device)
-    if args.init:
-        model.load_state_dict(load_pretrained(args.init).state_dict())
+    if cfg.init:  # initialize by pretrained
+        model.load_state_dict(load_pretrained(cfg.init).state_dict())
 
-    if args.show:
+    if cfg.show:
         print(model)
         size = sizeof_fmt(4 * sum(p.numel() for p in model.parameters()))
         print(f"Model size {size}")
@@ -136,16 +142,20 @@ def main():
         saved = th.load(checkpoint, map_location='cpu')
     except IOError:
         saved = SavedState()
-
-    optimizer = th.optim.Adam(model.parameters(), lr=args.lr)
+    # define optimizers
+    optimizer = th.optim.Adam(model.parameters(), lr=cfg.lr)
 
     quantizer = None
-    quantizer = get_quantizer(model, args, optimizer)
+    quantizer = get_quantizer(model, cfg, optimizer)
 
-    if saved.last_state is not None:
-        model.load_state_dict(saved.last_state, strict=False)
-    if saved.optimizer is not None:
-        optimizer.load_state_dict(saved.optimizer)
+    if cfg.device.distributed:
+        dmodel = DistributedDataParallel(model,
+                                         device_ids=[th.cuda.current_device()],
+                                         output_device=th.cuda.current_device())
+    else:
+        dmodel = model
+
+    cfg.use_adv = False
     trainer = Trainer(
         model={"generator": dmodel},
         optimizer={"generator": optimizer},
@@ -157,80 +167,85 @@ def main():
         pass
 
     model_name = f"{name}.th"
-    if args.save_model:
-        if args.rank == 0:
+    if cfg.save_model:
+        if cfg.device.rank == 0:
             model.to("cpu")
-            save_model(model, quantizer, args, args.models / model_name)
             assert trainer.best_state is not None, "model needs to train for 1 epoch at least."
             model.load_state_dict(trainer.best_state)
+            save_model(model, quantizer, cfg, model_folder / model_name)
         return
-    elif args.save_state:
-        model_name = f"{args.save_state}.th"
-        if args.rank == 0:
+    elif cfg.save_state:
+        model_name = f"{cfg.save_state}.th"
+        if cfg.device.rank == 0:
             model.to("cpu")
             model.load_state_dict(trainer.best_state)
             state = get_state(model, quantizer)
-            save_state(state, args.models / model_name)
+            save_state(state, model_folder / model_name)
         return
 
-    if args.rank == 0:
-        done = args.logs / f"{name}.done"
+    if cfg.device.rank == 0:
+        done = log_folder / f"{name}.done"
         if done.exists():
             done.unlink()
 
-    augment = [Shift(args.data_stride)]
-    if args.augment:
+    augment = [Shift(cfg.dataset.data_stride)]
+    if cfg.dataset.augment:
         augment += [FlipSign(), FlipChannels(), Scale(),
-                    Remix(group_size=args.remix_group_size)]
+                    Remix(group_size=cfg.dataset.remix_group_size)]
     augment = nn.Sequential(*augment).to(device)
     print("Agumentation pipeline:", augment)
 
-    if args.mse:
+    # define criterions
+    if cfg.auxiliary_loss == "MSELoss":
         criterion = nn.MSELoss()
+    elif cfg.auxiliary_loss == "MultiResolutionSTFTLoss":
+        criterion = MultiResolutionSTFTLoss().to(device)
     else:
         criterion = nn.L1Loss()
+    valid_criterion = nn.L1Loss()
 
     # Setting number of samples so that all convolution windows are full.
     # Prevents hard to debug mistake with the prediction being shifted compared
     # to the input mixture.
-    samples = model.valid_length(args.samples)
+    samples = model.valid_length(cfg.dataset.samples)
     print(f"Number of training samples adjusted to {samples}")
-    samples = samples + args.data_stride
-    if args.repitch:
+    samples = samples + cfg.dataset.data_stride
+    if cfg.dataset.repitch:
         # We need a bit more audio samples, to account for potential
         # tempo change.
-        samples = math.ceil(samples / (1 - 0.01 * args.max_tempo))
+        samples = math.ceil(samples / (1 - 0.01 * cfg.dataset.max_tempo))
 
-    args.metadata.mkdir(exist_ok=True, parents=True)
-    if args.raw:
-        train_set = Rawset(args.raw / "train",
+    metadata_folder = out / cfg.dataset.musdb.metadata
+    metadata_folder.mkdir(exist_ok=True, parents=True)
+    if cfg.dataset.raw.path:
+        train_set = Rawset(cfg.dataset.raw.path / "train",
                            samples=samples,
-                           channels=args.audio_channels,
+                           channels=cfg.dataset.audio_channels,
                            streams=range(1, len(model.sources) + 1),
-                           stride=args.data_stride)
+                           stride=cfg.dataset.data_stride)
 
-        valid_set = Rawset(args.raw / "valid", channels=args.audio_channels)
-    elif args.wav:
-        train_set, valid_set = get_wav_datasets(args, samples, model.sources)
+        valid_set = Rawset(cfg.dataset.raw.path / "valid", channels=cfg.dataset.audio_channels)
+    elif cfg.dataset.wav.path:
+        train_set, valid_set = get_wav_datasets(cfg, samples, model.sources)
 
-        if args.concat:
-            if args.is_wav:
-                mus_train, mus_valid = get_musdb_wav_datasets(args, samples, model.sources)
+        if cfg.dataset.wav.concat:
+            if cfg.dataset.musdb.is_wav:
+                mus_train, mus_valid = get_musdb_wav_datasets(cfg, samples, model.sources)
             else:
-                mus_train, mus_valid = get_compressed_datasets(args, samples)
+                mus_train, mus_valid = get_compressed_datasets(cfg, samples)
             train_set = ConcatDataset([train_set, mus_train])
             valid_set = ConcatDataset([valid_set, mus_valid])
-    elif args.is_wav:
-        train_set, valid_set = get_musdb_wav_datasets(args, samples, model.sources)
+    elif cfg.dataset.musdb.is_wav:
+        train_set, valid_set = get_musdb_wav_datasets(cfg, samples, model.sources)
     else:
-        train_set, valid_set = get_compressed_datasets(args, samples)
+        train_set, valid_set = get_compressed_datasets(cfg, samples)
     print("Train set and valid set sizes", len(train_set), len(valid_set))
 
-    if args.repitch:
+    if cfg.dataset.repitch:
         train_set = RepitchedWrapper(
             train_set,
-            proba=args.repitch,
-            max_tempo=args.max_tempo)
+            proba=cfg.dataset.repitch,
+            max_tempo=cfg.dataset.max_tempo)
 
     best_loss = float("inf")
     for epoch, metrics in enumerate(trainer.metrics):
@@ -243,44 +258,37 @@ def main():
               f"duration={human_seconds(metrics['duration'])}")
         best_loss = metrics['best']
 
-    if args.world_size > 1:
-        dmodel = DistributedDataParallel(model,
-                                         device_ids=[th.cuda.current_device()],
-                                         output_device=th.cuda.current_device())
-    else:
-        dmodel = model
-
     for epoch in range(len(trainer.metrics), cfg.epochs):
         begin = time.time()
         model.train()
         train_loss, model_size = train_model(
             epoch, train_set, dmodel, criterion, optimizer, augment,
             quantizer=quantizer,
-            batch_size=args.batch_size,
+            batch_size=cfg.batch_size,
             batch_divide=cfg.batch_divide,
             device=device,
-            repeat=args.repeat,
-            seed=args.seed,
-            diffq=args.diffq,
-            workers=args.workers,
-            world_size=args.world_size)
+            repeat=cfg.repeat,
+            seed=cfg.seed,
+            diffq=cfg.diffq,
+            workers=cfg.device.workers,
+            world_size=cfg.device.world_size)
         model.eval()
         valid_loss = validate_model(
-            epoch, valid_set, model, criterion,
+            epoch, valid_set, model, valid_criterion,
             device=device,
-            rank=args.rank,
-            split=args.split_valid,
-            overlap=args.overlap,
-            world_size=args.world_size)
+            rank=cfg.device.rank,
+            split=cfg.split_valid,
+            overlap=cfg.dataset.overlap,
+            world_size=cfg.device.world_size)
 
         ms = 0
         cms = 0
-        if quantizer and args.rank == 0:
+        if quantizer and cfg.device.rank == 0:
             ms = quantizer.true_model_size()
-            cms = quantizer.compressed_model_size(num_workers=min(40, args.world_size * 10))
+            cms = quantizer.compressed_model_size(num_workers=min(40, cfg.device.world_size * 10))
 
         duration = time.time() - begin
-        if valid_loss < best_loss and ms <= args.ms_target:
+        if valid_loss < best_loss and ms <= cfg.ms_target:
             best_loss = valid_loss
             trainer.best_state = {
                 key: value.to("cpu").clone()
@@ -296,13 +304,10 @@ def main():
             "true_model_size": ms,
             "compressed_model_size": cms,
         })
-        if args.rank == 0:
+        if cfg.device.rank == 0:
             json.dump(trainer.metrics, open(metrics_path, "w"))
 
-        saved.last_state = model.state_dict()
-        saved.optimizer = optimizer.state_dict()
-        if args.rank == 0 and not args.test:
-            th.save(saved, checkpoint_tmp)
+        if cfg.device.rank == 0 and not cfg.test:
             trainer.save_checkpoint(checkpoint_tmp)
             checkpoint_tmp.rename(checkpoint)
 
@@ -311,29 +316,29 @@ def main():
               f"cms={cms:.2f}MB "
               f"duration={human_seconds(duration)}")
 
-    if args.world_size > 1:
+    if cfg.device.world_size > 1:
         distributed.barrier()
 
     del dmodel
-    if args.eval_cpu:
     model.load_state_dict(trainer.best_state)
+    if cfg.device.eval_cpu:
         device = "cpu"
         model.to(device)
     model.eval()
-    evaluate(model, args.musdb, eval_folder,
-             is_wav=args.is_wav,
-             rank=args.rank,
-             world_size=args.world_size,
+    evaluate(model, cfg.dataset.musdb.path, eval_folder,
+             is_wav=cfg.dataset.musdb.is_wav,
+             rank=cfg.device.rank,
+             world_size=cfg.device.world_size,
              device=device,
-             save=args.save,
-             split=args.split_valid,
-             shifts=args.shifts,
-             overlap=args.overlap,
-             workers=args.eval_workers)
+             save=cfg.save,
+             split=cfg.split_valid,
+             shifts=cfg.dataset.shifts,
+             overlap=cfg.dataset.overlap,
+             workers=cfg.device.eval_workers)
     model.to("cpu")
-    if args.rank == 0:
-        if not (args.test or args.test_pretrained):
-            save_model(model, quantizer, args, args.models / model_name)
+    if cfg.device.rank == 0:
+        if not (cfg.test or cfg.test_pretrained):
+            save_model(model, quantizer, cfg, model_folder / model_name)
         print("done")
         done.write_text("done")
 
