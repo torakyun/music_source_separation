@@ -9,7 +9,6 @@ import math
 import os
 import sys
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import torch as th
@@ -30,12 +29,6 @@ from .wav import get_wav_datasets, get_musdb_wav_datasets
 
 from . import models
 
-@dataclass
-class SavedState:
-    metrics: list = field(default_factory=list)
-    last_state: dict = None
-    best_state: dict = None
-    optimizer: dict = None
 from .losses import DiscriminatorAdversarialLoss
 from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
@@ -129,10 +122,6 @@ def main(cfg):
         print(f"Model size {size}")
         return
 
-    try:
-        saved = th.load(checkpoint, map_location='cpu')
-    except IOError:
-        saved = SavedState()
     # define optimizers
     optimizer = th.optim.Adam(model.parameters(), lr=cfg.lr)
 
