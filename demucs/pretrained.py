@@ -10,8 +10,7 @@ import logging
 from diffq import DiffQuantizer
 import torch.hub
 
-from .model import Demucs
-from .tasnet import ConvTasNet
+from . import models
 from .utils import set_state
 
 logger = logging.getLogger(__name__)
