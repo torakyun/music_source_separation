@@ -19,7 +19,7 @@ from demucs.utils import free_port
 
 def main():
     args = sys.argv[1:]
-    gpus = th.cuda.device_count()
+    gpus = max(th.cuda.device_count(), 1)
 
     port = free_port()
     name = "|".join(args) if args else "default"
