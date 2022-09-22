@@ -18,18 +18,17 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 
 from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
-from .model import Demucs
 from .parser import get_name, get_parser
 from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .pretrained import load_pretrained, SOURCES
-from .tasnet import ConvTasNet
 from .test import evaluate
 from .train import train_model, validate_model
 from .utils import (human_seconds, load_model, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
 
+from . import models
 
 @dataclass
 class SavedState:

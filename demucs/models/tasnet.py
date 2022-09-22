@@ -36,7 +36,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .utils import capture_init
+from ..utils import capture_init
 
 EPS = 1e-8
 
@@ -80,7 +80,7 @@ class ConvTasNet(nn.Module):
                  causal=False,
                  mask_nonlinear='relu',
                  samplerate=44100,
-                 segment_length=44100 * 2 * 4):
+                 samples=44100 * 2):
         """
         Args:
             sources: list of sources
@@ -105,7 +105,7 @@ class ConvTasNet(nn.Module):
         self.mask_nonlinear = mask_nonlinear
         self.audio_channels = audio_channels
         self.samplerate = samplerate
-        self.segment_length = segment_length
+        self.segment_length = 4 * samples
         # Components
         self.encoder = Encoder(L, N, audio_channels)
         self.separator = TemporalConvNet(
@@ -140,6 +140,7 @@ class ConvTasNet(nn.Module):
 class Encoder(nn.Module):
     """Estimation of the nonnegative mixture weight by a 1-D conv layer.
     """
+
     def __init__(self, L, N, audio_channels):
         super(Encoder, self).__init__()
         # Hyper-parameter
@@ -337,6 +338,7 @@ class DepthwiseSeparableConv(nn.Module):
 class Chomp1d(nn.Module):
     """To ensure the output length is the same as the input.
     """
+
     def __init__(self, chomp_size):
         super(Chomp1d, self).__init__()
         self.chomp_size = chomp_size
@@ -370,6 +372,7 @@ def chose_norm(norm_type, channel_size):
 # TODO: Use nn.LayerNorm to impl cLN to speed up
 class ChannelwiseLayerNorm(nn.Module):
     """Channel-wise Layer Normalization (cLN)"""
+
     def __init__(self, channel_size):
         super(ChannelwiseLayerNorm, self).__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
@@ -395,6 +398,7 @@ class ChannelwiseLayerNorm(nn.Module):
 
 class GlobalLayerNorm(nn.Module):
     """Global Layer Normalization (gLN)"""
+
     def __init__(self, channel_size):
         super(GlobalLayerNorm, self).__init__()
         self.gamma = nn.Parameter(torch.Tensor(1, channel_size, 1))  # [1, N, 1]
