@@ -26,7 +26,8 @@ def train_model(epoch,
                 seed=None,
                 workers=4,
                 world_size=1,
-                batch_size=16):
+                batch_size=16,
+                batch_divide=1):
 
     if world_size > 1:
         sampler = DistributedSampler(dataset)
@@ -56,15 +57,23 @@ def train_model(epoch,
             sources = augment(sources)
             mix = sources.sum(dim=1)
 
-            estimates = model(mix)
-            sources = center_trim(sources, estimates)
-            loss = criterion(estimates, sources)
-            model_size = 0
-            if quantizer is not None:
-                model_size = quantizer.model_size()
+            for start in range(batch_divide):
+                sources_divide = sources[start::batch_divide]
+                mix_divide = mix[start::batch_divide]
+                estimates = model(mix_divide)
+                sources_divide = center_trim(sources_divide, estimates)
+                loss = criterion(estimates, sources_divide)
+                total_loss += loss.item() / batch_divide
+                model_size = 0
+                if quantizer is not None:
+                    model_size = quantizer.model_size()
 
-            train_loss = loss + diffq * model_size
-            train_loss.backward()
+                train_loss = loss + diffq * model_size
+                (train_loss / batch_divide).backward()
+
+                # free some space before next round
+                del sources_divide, mix_divide, estimates, loss, train_loss
+
             grad_norm = 0
             for p in model.parameters():
                 if p.grad is not None:
@@ -76,13 +85,9 @@ def train_model(epoch,
             if quantizer is not None:
                 model_size = model_size.item()
 
-            total_loss += loss.item()
             current_loss = total_loss / (1 + idx)
             tq.set_postfix(loss=f"{current_loss:.4f}", ms=f"{model_size:.2f}",
                            grad=f"{grad_norm:.5f}")
-
-            # free some space before next round
-            del sources, mix, estimates, loss, train_loss
 
         if world_size > 1:
             sampler.epoch += 1

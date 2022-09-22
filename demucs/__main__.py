@@ -248,6 +248,7 @@ def main():
             epoch, train_set, dmodel, criterion, optimizer, augment,
             quantizer=quantizer,
             batch_size=args.batch_size,
+            batch_divide=cfg.batch_divide,
             device=device,
             repeat=args.repeat,
             seed=args.seed,
