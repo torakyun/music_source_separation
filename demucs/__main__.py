@@ -37,6 +37,10 @@ class SavedState:
     last_state: dict = None
     best_state: dict = None
     optimizer: dict = None
+from .losses import DiscriminatorAdversarialLoss
+from .losses import GeneratorAdversarialLoss
+from .losses import MelSpectrogramLoss
+from .losses import MultiResolutionSTFTLoss
 
 
 def main():
