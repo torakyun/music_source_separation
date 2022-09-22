@@ -104,31 +104,22 @@ def main(cfg):
         if cfg.test:
             model = load_model(model_folder / cfg.test).to(device)
         else:
-    elif args.tasnet:
-        model = ConvTasNet(audio_channels=args.audio_channels,
-                           samplerate=args.samplerate, X=args.X,
-                           segment_length=4 * args.samples,
-                           sources=SOURCES)
             model = load_pretrained(cfg.test_pretrained).to(device)
     else:
-        model = Demucs(
-            audio_channels=args.audio_channels,
-            channels=args.channels,
-            context=args.context,
-            depth=args.depth,
-            glu=args.glu,
-            growth=args.growth,
-            kernel_size=args.kernel_size,
-            lstm_layers=args.lstm_layers,
-            rescale=args.rescale,
-            rewrite=args.rewrite,
-            stride=args.conv_stride,
-            resample=args.resample,
-            normalize=args.normalize,
-            samplerate=args.samplerate,
-            segment_length=4 * args.samples,
-            sources=SOURCES,
+        generator_class = getattr(
+            models,
+            # keep compatibility
+            cfg.model.generator.get("name", "Demucs"),
         )
+        # model = {
+        #     "generator": generator_class(
+        #         **cfg.model.generator.params,
+        #     ).to(device),
+        #     # "discriminator": discriminator_class(
+        #     #     **cfg.model.discriminator.params,
+        #     # ).to(device),
+        # }
+        model = generator_class(**cfg.model.generator.params).to(device)
     if cfg.init:  # initialize by pretrained
         model.load_state_dict(load_pretrained(cfg.init).state_dict())
 
