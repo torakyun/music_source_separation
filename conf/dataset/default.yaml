@@ -4,7 +4,7 @@ raw:
 musdb:
   path: "../musdb18"
   is_wav: false
-  metadata: "../out/metadata"
+  metadata: "../metadata"
 wav:
   path:
   concat: true
