@@ -1,4 +1,5 @@
 defaults:
+  - _self_
   - outdir: default
   - device: default
   - dataset: default
