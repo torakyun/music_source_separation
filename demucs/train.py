@@ -9,10 +9,10 @@ import sys
 
 # from tensorboardX import SummaryWriter
 
-import tqdm
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm
 
 from .utils import apply_model, average_metric, center_trim
 
@@ -135,12 +135,12 @@ def train_model(epoch,
     current_loss = 0
     model_size = 0
     for repetition in range(repeat):
-        tq = tqdm.tqdm(loader,
-                       ncols=120,
-                       desc=f"[{epoch:03d}] train ({repetition + 1}/{repeat})",
-                       leave=False,
-                       file=sys.stdout,
-                       unit=" batch")
+        tq = tqdm(loader,
+                  ncols=120,
+                  desc=f"[{epoch:03d}] train ({repetition + 1}/{repeat})",
+                  leave=False,
+                  file=sys.stdout,
+                  unit=" batch")
         total_loss = 0
         for idx, sources in enumerate(tq):
             if len(sources) < batch_size:
