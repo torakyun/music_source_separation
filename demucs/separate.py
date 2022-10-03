@@ -134,7 +134,11 @@ def main():
     name = args.name + ".th"
     model_path = args.models / name
     if name == "demucs_v2":
-        model = load_v2_model()
+        model = load_v2_model(model_path)
+        model.samplerate = 44100
+        model.audio_channels = 2
+        model.sources = ["drums", "bass", "other", "vocals"]
+        model.segment_length = 4 * 441000
     elif model_path.is_file():
         model = load_model(model_path)
     else:
