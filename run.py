@@ -11,6 +11,7 @@ one task per node as this script will spawn one child for each GPU.
 import subprocess as sp
 import sys
 import time
+import re
 
 import torch as th
 
@@ -22,7 +23,9 @@ def main():
     gpus = max(th.cuda.device_count(), 1)
 
     port = free_port()
-    name = "|".join(args) if args else "default"
+    ignore_args = ["restart", "show", "save", "save_model", "save_state", "epochs"]
+    name = [arg for arg in args if not re.split("[+=]", arg)[-2] in ignore_args] if args else ["default"]
+    name = "|".join(name) if args else "default"
     args += [f"+name=\"{name}\"", f"+device.world_size={gpus}", f"+device.master=127.0.0.1:{port}"]
     tasks = []
 
