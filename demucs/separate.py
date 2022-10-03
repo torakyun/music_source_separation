@@ -15,7 +15,7 @@ import torchaudio as ta
 
 from .audio import AudioFile, convert_audio_channels
 from .pretrained import is_pretrained, load_pretrained
-from .utils import apply_model, load_model
+from .utils import apply_model, load_model, load_v2_model
 
 
 def load_track(track, device, audio_channels, samplerate):
@@ -87,12 +87,12 @@ def main():
     parser.add_argument("-o",
                         "--out",
                         type=Path,
-                        default=Path("separated"),
+                        default=Path("../separated"),
                         help="Folder where to put extracted tracks. A subfolder "
                         "with the model name will be created.")
     parser.add_argument("--models",
                         type=Path,
-                        default=Path("models"),
+                        default=Path("../out/models"),
                         help="Path to trained models. "
                         "Also used to store downloaded pretrained models")
     parser.add_argument("-d",
@@ -133,7 +133,9 @@ def main():
     args = parser.parse_args()
     name = args.name + ".th"
     model_path = args.models / name
-    if model_path.is_file():
+    if name == "demucs_v2":
+        model = load_v2_model()
+    elif model_path.is_file():
         model = load_model(model_path)
     else:
         if is_pretrained(args.name):

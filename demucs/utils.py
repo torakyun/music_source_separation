@@ -238,6 +238,19 @@ def get_quantizer(model, args, optimizer=None):
     return quantizer
 
 
+def load_v2_model(path):
+    import gzip
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        load_from = path
+        if str(path).endswith(".gz"):
+            load_from = gzip.open(path, "rb")
+        klass, args, kwargs, state = th.load(load_from, 'cpu')
+    model = klass(*args, **kwargs)
+    model.load_state_dict(state)
+    return model
+
+
 def load_model(path, strict=False):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
