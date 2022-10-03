@@ -20,8 +20,8 @@ BASELINES = [
     'OpenUnmix',
     'IRM2',
 ]
-EVALS = Path("evals")
-LOGS = Path("logs")
+EVALS = Path("../out/evals")
+LOGS = Path("../out/logs")
 BASELINE_EVALS = Path("baselines")
 STD_KEY = "seed"
 
