@@ -10,7 +10,7 @@ import logging
 from diffq import DiffQuantizer
 import torch.hub
 
-from . import models
+from .models import *
 from .utils import set_state
 
 logger = logging.getLogger(__name__)
