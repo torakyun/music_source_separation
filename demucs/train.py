@@ -68,6 +68,7 @@ class Trainer(object):
         """
         state_dict = {
             "metrics": self.metrics,
+            "best_state": self.best_state,
             "optimizer": {
                 "generator": self.optimizer["generator"].state_dict(),
             },
@@ -112,6 +113,7 @@ class Trainer(object):
                 self.model["discriminator"].load_state_dict(state_dict["model"]["discriminator"])
         if not load_only_params:
             self.metrics = state_dict["metrics"]
+            self.best_state = state_dict["best_state"]
             self.optimizer["generator"].load_state_dict(
                 state_dict["optimizer"]["generator"]
             )
