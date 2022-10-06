@@ -13,7 +13,8 @@ from pathlib import Path
 
 import torch as th
 from torch import distributed, nn
-from torch.utils.data import ConcatDataset
+from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel.distributed import DistributedDataParallel
 
 from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
@@ -22,7 +23,7 @@ from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .pretrained import load_pretrained
 from .test import evaluate
-from .train import train_model, validate_model, Trainer
+from .train import validate_model, Trainer
 from .utils import (human_seconds, load_model, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
@@ -122,67 +123,7 @@ def main(cfg):
         print(f"Model size {size}")
         return
 
-    # define optimizers
-    optimizer = th.optim.Adam(model.parameters(), lr=cfg.lr)
-
-    quantizer = None
-    quantizer = get_quantizer(model, cfg, optimizer)
-
-    if cfg.device.distributed:
-        dmodel = DistributedDataParallel(model,
-                                         device_ids=[th.cuda.current_device()],
-                                         output_device=th.cuda.current_device())
-    else:
-        dmodel = model
-
-    cfg.use_adv = False
-    trainer = Trainer(
-        model={"generator": dmodel},
-        optimizer={"generator": optimizer},
-        config=cfg
-    )
-    try:
-        trainer.load_checkpoint(checkpoint)
-    except IOError:
-        pass
-
-    model_name = f"{name}.th"
-    if cfg.save_model:
-        if cfg.device.rank == 0:
-            model.to("cpu")
-            assert trainer.best_state is not None, "model needs to train for 1 epoch at least."
-            model.load_state_dict(trainer.best_state)
-            save_model(model, quantizer, cfg, model_folder / model_name)
-        return
-    elif cfg.save_state:
-        model_name = f"{cfg.save_state}.th"
-        if cfg.device.rank == 0:
-            model.to("cpu")
-            model.load_state_dict(trainer.best_state)
-            state = get_state(model, quantizer)
-            save_state(state, model_folder / model_name)
-        return
-
-    if cfg.device.rank == 0:
-        done = log_folder / f"{name}.done"
-        if done.exists():
-            done.unlink()
-
-    augment = [Shift(cfg.dataset.data_stride)]
-    if cfg.dataset.augment:
-        augment += [FlipSign(), FlipChannels(), Scale(),
-                    Remix(group_size=cfg.dataset.remix_group_size)]
-    augment = nn.Sequential(*augment).to(device)
-    print("Agumentation pipeline:", augment)
-
-    # define criterions
-    if cfg.auxiliary_loss == "MSELoss":
-        criterion = nn.MSELoss()
-    elif cfg.auxiliary_loss == "MultiResolutionSTFTLoss":
-        criterion = MultiResolutionSTFTLoss().to(device)
-    else:
-        criterion = nn.L1Loss()
-    valid_criterion = nn.L1Loss()
+    # get dataset
 
     # Setting number of samples so that all convolution windows are full.
     # Prevents hard to debug mistake with the prediction being shifted compared
@@ -227,6 +168,112 @@ def main(cfg):
             proba=cfg.dataset.repitch,
             max_tempo=cfg.dataset.max_tempo)
 
+    # get data loader
+    sampler = {"train": None, "valid": None}
+    if cfg.device.world_size > 1:
+        sampler["train"] = DistributedSampler(
+            dataset=train_set,
+            num_replicas=cfg.device.world_size,
+            rank=cfg.device.rank,
+            shuffle=True,
+        )
+        sampler["valid"] = DistributedSampler(
+            dataset=valid_set,
+            num_replicas=cfg.device.world_size,
+            rank=cfg.device.rank,
+            shuffle=False,
+        )
+    batch_size = cfg.batch_size // cfg.device.world_size
+    data_loader = {
+        "train": DataLoader(
+            dataset=train_set,
+            shuffle=False if cfg.device.world_size > 1 else True,
+            batch_size=batch_size,
+            num_workers=cfg.device.workers,
+            sampler=sampler["train"],
+        ),
+        "valid": DataLoader(
+            dataset=valid_set,
+            shuffle=False if cfg.device.world_size > 1 else True,
+            batch_size=1,
+            num_workers=cfg.device.workers,
+            sampler=sampler["valid"],
+        ),
+    }
+
+    # define augments
+    augment = [Shift(cfg.dataset.data_stride)]
+    if cfg.dataset.augment:
+        augment += [FlipSign(), FlipChannels(), Scale(),
+                    Remix(group_size=cfg.dataset.remix_group_size)]
+    augment = nn.Sequential(*augment).to(device)
+    print("Agumentation pipeline:", augment)
+
+    # define criterions
+    criterion = {}
+    if cfg.loss.l1["lambda"]:
+        criterion["l1"] = nn.L1Loss()
+    if cfg.loss.mse["lambda"]:
+        criterion["mse"] = nn.MSELoss()
+    if cfg.loss.stft["lambda"]:
+        criterion["stft"] = MultiResolutionSTFTLoss().to(device)
+    assert criterion
+    print(criterion)
+    valid_criterion = nn.L1Loss()
+
+    # define optimizers
+    optimizer = th.optim.Adam(model.parameters(), lr=cfg.lr)
+
+    quantizer = None
+    quantizer = get_quantizer(model, cfg, optimizer)
+
+    if cfg.device.distributed:
+        dmodel = DistributedDataParallel(model,
+                                         device_ids=[th.cuda.current_device()],
+                                         output_device=th.cuda.current_device())
+    else:
+        dmodel = model
+
+    # define Trainer
+    cfg.use_adv = False
+    trainer = Trainer(
+        data_loader=data_loader,
+        sampler=sampler,
+        augment=augment,
+        model={"generator": dmodel},
+        quantizer=quantizer,
+        criterion=criterion,
+        optimizer={"generator": optimizer},
+        config=cfg,
+        device=device,
+    )
+    try:
+        trainer.load_checkpoint(checkpoint)
+    except IOError:
+        pass
+
+    model_name = f"{name}.th"
+    if cfg.save_model:
+        if cfg.device.rank == 0:
+            model.to("cpu")
+            assert trainer.best_state is not None, "model needs to train for 1 epoch at least."
+            model.load_state_dict(trainer.best_state)
+            save_model(model, quantizer, cfg, model_folder / model_name)
+        return
+    elif cfg.save_state:
+        model_name = f"{cfg.save_state}.th"
+        if cfg.device.rank == 0:
+            model.to("cpu")
+            model.load_state_dict(trainer.best_state)
+            state = get_state(model, quantizer)
+            save_state(state, model_folder / model_name)
+        return
+
+    if cfg.device.rank == 0:
+        done = log_folder / f"{name}.done"
+        if done.exists():
+            done.unlink()
+
     best_loss = float("inf")
     for epoch, metrics in enumerate(trainer.metrics):
         print(f"Epoch {epoch:03d}: "
@@ -241,17 +288,7 @@ def main(cfg):
     for epoch in range(len(trainer.metrics), cfg.epochs):
         begin = time.time()
         model.train()
-        train_loss, model_size = train_model(
-            epoch, train_set, dmodel, criterion, optimizer, augment,
-            quantizer=quantizer,
-            batch_size=cfg.batch_size,
-            batch_divide=cfg.batch_divide,
-            device=device,
-            repeat=cfg.repeat,
-            seed=cfg.seed,
-            diffq=cfg.diffq,
-            workers=cfg.device.workers,
-            world_size=cfg.device.world_size)
+        train_loss, model_size = trainer._train_epoch(epoch)
         model.eval()
         valid_loss = validate_model(
             epoch, valid_set, model, valid_criterion,
