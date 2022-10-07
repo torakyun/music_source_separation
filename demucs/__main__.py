@@ -23,7 +23,7 @@ from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .pretrained import load_pretrained
 from .test import evaluate
-from .train import validate_model, Trainer
+from .train import Trainer
 from .utils import (human_seconds, load_model, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
@@ -290,13 +290,7 @@ def main(cfg):
         model.train()
         train_loss, model_size = trainer._train_epoch(epoch)
         model.eval()
-        valid_loss = validate_model(
-            epoch, valid_set, model, valid_criterion,
-            device=device,
-            rank=cfg.device.rank,
-            split=cfg.split_valid,
-            overlap=cfg.dataset.overlap,
-            world_size=cfg.device.world_size)
+        valid_loss = trainer._valid_epoch(epoch)
 
         ms = 0
         cms = 0

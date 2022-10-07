@@ -198,40 +198,41 @@ class Trainer(object):
             current_loss = average_metric(current_loss)
         return current_loss, model_size
 
+    def _valid_epoch(self, epoch):
+        tq = tqdm(self.data_loader["valid"],
+                  ncols=120,
+                  desc=f"[{epoch:03d}] valid",
+                  leave=False,
+                  file=sys.stdout,
+                  unit=" track")
+        # reset
+        self.total_valid_loss = defaultdict(float)
+        for idx, streams in enumerate(tq):
+            # first five minutes to avoid OOM on --upsample models
+            streams = streams[0, ..., :15_000_000]
+            streams = streams.to(self.device)
+            sources = streams[1:]
+            mix = streams[0]
+            estimates = apply_model(self.model["generator"], mix, shifts=0,
+                                    split=self.config.split_valid, overlap=self.config.dataset.overlap)
+
+            # initialize
+            gen_loss = 0.0
+
+            # l1 loss
+            if self.config.loss.l1["lambda"]:
+                l1_loss = self.criterion["l1"](estimates, sources)
+                gen_loss += self.config.loss.l1["lambda"] * l1_loss
+                self.total_valid_loss["l1_loss"] += l1_loss.item()
+
+            self.total_valid_loss["gen_loss"] += gen_loss.item()
+            del estimates, streams, sources
+
+        current_loss = self.total_valid_loss["gen_loss"] / (1 + idx)
+        if self.config.device.world_size > 1:
+            current_loss = average_metric(current_loss)
+        return current_loss
 
 
 
 
-def validate_model(epoch,
-                   dataset,
-                   model,
-                   criterion,
-                   device="cpu",
-                   rank=0,
-                   world_size=1,
-                   shifts=0,
-                   overlap=0.25,
-                   split=False):
-    indexes = range(rank, len(dataset), world_size)
-    tq = tqdm.tqdm(indexes,
-                   ncols=120,
-                   desc=f"[{epoch:03d}] valid",
-                   leave=False,
-                   file=sys.stdout,
-                   unit=" track")
-    current_loss = 0
-    for index in tq:
-        streams = dataset[index]
-        # first five minutes to avoid OOM on --upsample models
-        streams = streams[..., :15_000_000]
-        streams = streams.to(device)
-        sources = streams[1:]
-        mix = streams[0]
-        estimates = apply_model(model, mix, shifts=shifts, split=split, overlap=overlap)
-        loss = criterion(estimates, sources)
-        current_loss += loss.item() / len(indexes)
-        del estimates, streams, sources
-
-    if world_size > 1:
-        current_loss = average_metric(current_loss, len(indexes))
-    return current_loss
