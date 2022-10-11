@@ -92,6 +92,26 @@ def main(cfg):
                                        world_size=cfg.device.world_size)
 
     # define models
+    generator_class = getattr(
+        models,
+        # keep compatibility
+        cfg.model.generator.get("name", "Demucs"),
+    )
+    model = {
+        "generator": generator_class(
+            **cfg.model.generator.params,
+        ).to(device),
+        "discriminator": None,
+    }
+    # if cfg.loss.adversarial["lambda"]:
+    #     discriminator_class = getattr(
+    #         models,
+    #         # keep compatibility
+    #         cfg.model.discriminator.get("name", "ParallelWaveGANDiscriminator"),
+    #     )
+    #     model["discriminator"] = discriminator_class(
+    #         **cfg.model.discriminator.params,
+    #     ).to(device)
 
     if cfg.show:
         print(model)
@@ -104,7 +124,7 @@ def main(cfg):
     # Setting number of samples so that all convolution windows are full.
     # Prevents hard to debug mistake with the prediction being shifted compared
     # to the input mixture.
-    samples = model.valid_length(cfg.dataset.samples)
+    samples = model["generator"].valid_length(cfg.dataset.samples)
     print(f"Number of training samples adjusted to {samples}")
     samples = samples + cfg.dataset.data_stride
     if cfg.dataset.repitch:
@@ -118,12 +138,12 @@ def main(cfg):
         train_set = Rawset(cfg.dataset.raw.path / "train",
                            samples=samples,
                            channels=cfg.dataset.audio_channels,
-                           streams=range(1, len(model.sources) + 1),
+                           streams=range(1, len(model["generator"].sources) + 1),
                            stride=cfg.dataset.data_stride)
 
         valid_set = Rawset(cfg.dataset.raw.path / "valid", channels=cfg.dataset.audio_channels)
     elif cfg.dataset.wav.path:
-        train_set, valid_set = get_wav_datasets(cfg, samples, model.sources)
+        train_set, valid_set = get_wav_datasets(cfg, samples, model["generator"].sources)
 
         if cfg.dataset.wav.concat:
             if cfg.dataset.musdb.is_wav:
@@ -133,7 +153,7 @@ def main(cfg):
             train_set = ConcatDataset([train_set, mus_train])
             valid_set = ConcatDataset([valid_set, mus_valid])
     elif cfg.dataset.musdb.is_wav:
-        train_set, valid_set = get_musdb_wav_datasets(cfg, samples, model.sources)
+        train_set, valid_set = get_musdb_wav_datasets(cfg, samples, model["generator"].sources)
     else:
         train_set, valid_set = get_compressed_datasets(cfg, samples)
     print("Train set and valid set sizes", len(train_set), len(valid_set))
@@ -198,17 +218,15 @@ def main(cfg):
     valid_criterion = nn.L1Loss()
 
     # define optimizers
-    optimizer = th.optim.Adam(model.parameters(), lr=cfg.lr)
+    optimizer = th.optim.Adam(model["generator"].parameters(), lr=cfg.lr)
 
     quantizer = None
-    quantizer = get_quantizer(model, cfg, optimizer)
+    quantizer = get_quantizer(model["generator"], cfg, optimizer)
 
     if cfg.device.distributed:
-        dmodel = DistributedDataParallel(model,
+        model["generator"] = DistributedDataParallel(model["generator"],
                                          device_ids=[th.cuda.current_device()],
                                          output_device=th.cuda.current_device())
-    else:
-        dmodel = model
 
     # define Trainer
     cfg.use_adv = False
@@ -216,7 +234,7 @@ def main(cfg):
         data_loader=data_loader,
         sampler=sampler,
         augment=augment,
-        model={"generator": dmodel},
+        model=model,
         quantizer=quantizer,
         criterion=criterion,
         optimizer={"generator": optimizer},

@@ -207,13 +207,14 @@ class Trainer(object):
                   unit=" track")
         # reset
         self.total_valid_loss = defaultdict(float)
+        model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
         for idx, streams in enumerate(tq):
             # first five minutes to avoid OOM on --upsample models
             streams = streams[0, ..., :15_000_000]
             streams = streams.to(self.device)
             sources = streams[1:]
             mix = streams[0]
-            estimates = apply_model(self.model["generator"], mix, shifts=0,
+            estimates = apply_model(model, mix, shifts=0,
                                     split=self.config.split_valid, overlap=self.config.dataset.overlap)
 
             # initialize
