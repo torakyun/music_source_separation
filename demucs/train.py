@@ -308,11 +308,9 @@ class Trainer(object):
 
             # l1 loss
             if self.config.loss.l1["lambda"]:
-                l1_loss = self.criterion["l1"](estimates, sources)
+                l1_loss = self.criterion["l1"](estimates, sources).item()
                 gen_loss += self.config.loss.l1["lambda"] * l1_loss
-                self.total_valid_loss["l1_loss"] += l1_loss.item()
-
-            self.total_valid_loss["gen_loss"] += gen_loss.item()
+                self.total_valid_loss["l1_loss"] += l1_loss
 
             # multi-resolution sfft loss
             if self.config.loss.stft["lambda"]:
