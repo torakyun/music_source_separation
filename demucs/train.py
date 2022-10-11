@@ -283,6 +283,7 @@ class Trainer(object):
             current_loss = average_metric(current_loss)
         return current_loss, model_size
 
+    @torch.no_grad()
     def _valid_epoch(self, epoch):
         tq = tqdm(self.data_loader["valid"],
                   ncols=120,
