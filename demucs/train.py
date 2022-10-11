@@ -56,7 +56,8 @@ class Trainer(object):
         self.optimizer = optimizer
         self.config = config
         self.device = device
-        # self.writer = SummaryWriter(config["outdir"])
+        self.outdir = Path(config.outdir.out)
+        # self.writer = SummaryWriter(self.outdir / "tf")
         self.total_train_loss = defaultdict(float)
         self.total_valid_loss = defaultdict(float)
         self.total_eval_loss = defaultdict(float)
