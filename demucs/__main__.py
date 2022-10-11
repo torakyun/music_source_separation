@@ -92,30 +92,6 @@ def main(cfg):
                                        world_size=cfg.device.world_size)
 
     # define models
-    if cfg.test or cfg.test_pretrained:
-        cfg.epochs = 1
-        cfg.repeat = 0
-        if cfg.test:
-            model = load_model(model_folder / cfg.test).to(device)
-        else:
-            model = load_pretrained(cfg.test_pretrained).to(device)
-    else:
-        generator_class = getattr(
-            models,
-            # keep compatibility
-            cfg.model.generator.get("name", "Demucs"),
-        )
-        # model = {
-        #     "generator": generator_class(
-        #         **cfg.model.generator.params,
-        #     ).to(device),
-        #     # "discriminator": discriminator_class(
-        #     #     **cfg.model.discriminator.params,
-        #     # ).to(device),
-        # }
-        model = generator_class(**cfg.model.generator.params).to(device)
-    if cfg.init:  # initialize by pretrained
-        model.load_state_dict(load_pretrained(cfg.init).state_dict())
 
     if cfg.show:
         print(model)
@@ -348,7 +324,6 @@ def main(cfg):
              workers=cfg.device.eval_workers)
     model.to("cpu")
     if cfg.device.rank == 0:
-        if not (cfg.test or cfg.test_pretrained):
             save_model(model, quantizer, cfg, model_folder / model_name)
         print("done")
         done.write_text("done")

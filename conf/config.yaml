@@ -6,8 +6,6 @@ defaults:
   - model/generator: demucs
 
 # Training option
-test:
-test_pretrained:
 restart: false
 seed: 42
 epochs: 180
@@ -15,7 +13,6 @@ repeat: 2
 batch_size: 64
 batch_divide: 1
 lr: 0.0003
-init: false
 split_valid: false
 
 # Loss
