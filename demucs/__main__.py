@@ -239,7 +239,8 @@ def main(cfg):
         trainer.load_checkpoint(checkpoint)
     except IOError:
         pass
-
+    
+    # only save best state
     model_name = f"{name}.th"
     if cfg.save_model:
         if cfg.device.rank == 0:
