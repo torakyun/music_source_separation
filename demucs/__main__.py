@@ -4,11 +4,9 @@
 # This source code is licensed under the license found in the
 # LICENSE file in the root directory of this source tree.
 
-import json
 import math
 import os
 import sys
-import time
 from pathlib import Path
 
 import torch as th
@@ -21,10 +19,9 @@ from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
 from .raw import Rawset
 from .repitch import RepitchedWrapper
-from .pretrained import load_pretrained
 from .test import evaluate
 from .train import Trainer
-from .utils import (human_seconds, load_model, save_model, get_state,
+from .utils import (save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
 
@@ -35,7 +32,7 @@ from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
 from .losses import MultiResolutionSTFTLoss
 
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 import hydra
 
 
