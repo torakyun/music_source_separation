@@ -53,16 +53,11 @@ def main(cfg):
         sys.exit(1)
 
     out = Path(cfg.outdir.out)
-    eval_folder = out / cfg.outdir.evals / name
-    eval_folder.mkdir(exist_ok=True, parents=True)
     log_folder = out / cfg.outdir.logs
-    log_folder.mkdir(exist_ok=True)
-    metrics_path = out / cfg.outdir.logs / f"{name}.json"
-    eval_folder.mkdir(exist_ok=True, parents=True)
+    log_folder.mkdir(exist_ok=True, parents=True)
     checkpoint_folder = out / cfg.outdir.checkpoints
     checkpoint_folder.mkdir(exist_ok=True, parents=True)
     checkpoint = checkpoint_folder / f"{name}.th"
-    checkpoint_tmp = checkpoint_folder / f"{name}.th.tmp"
     if cfg.restart and checkpoint.exists() and cfg.device.rank == 0:
         checkpoint.unlink()
     model_folder = out / cfg.outdir.models
@@ -132,7 +127,7 @@ def main(cfg):
         # tempo change.
         samples = math.ceil(samples / (1 - 0.01 * cfg.dataset.max_tempo))
 
-    metadata_folder = out / cfg.dataset.musdb.metadata
+    metadata_folder = Path(cfg.dataset.musdb.metadata)
     metadata_folder.mkdir(exist_ok=True, parents=True)
     if cfg.dataset.raw.path:
         train_set = Rawset(cfg.dataset.raw.path / "train",
@@ -309,6 +304,8 @@ def main(cfg):
             "true_model_size": ms,
             "compressed_model_size": cms,
         })
+        eval_folder = out / cfg.outdir.evals / name
+        eval_folder.mkdir(exist_ok=True, parents=True)
         if cfg.device.rank == 0:
             json.dump(trainer.metrics, open(metrics_path, "w"))
 
