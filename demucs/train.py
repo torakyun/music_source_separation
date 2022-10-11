@@ -313,6 +313,22 @@ class Trainer(object):
                 self.total_valid_loss["l1_loss"] += l1_loss.item()
 
             self.total_valid_loss["gen_loss"] += gen_loss.item()
+
+            # multi-resolution sfft loss
+            if self.config.loss.stft["lambda"]:
+                toral_sc_loss, total_mag_loss = 0, 0
+                for index in range(sources.size(0)):
+                    sc_loss, mag_loss = self.criterion["stft"](estimates[index], sources[index])
+                    toral_sc_loss += sc_loss.item()
+                    total_mag_loss += mag_loss.item()
+                    del sc_loss, mag_loss
+                toral_sc_loss /= sources.size(0)
+                total_mag_loss /= sources.size(0)
+                gen_loss += self.config.loss.stft["lambda"] * (toral_sc_loss + total_mag_loss)
+                self.total_valid_loss["spectral_convergence_loss"] += toral_sc_loss
+                self.total_valid_loss["log_stft_magnitude_loss"] += total_mag_loss
+
+            self.total_valid_loss["gen_loss"] += gen_loss
             del estimates, streams, sources
 
         current_loss = self.total_valid_loss["gen_loss"] / (1 + idx)
