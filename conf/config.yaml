@@ -4,6 +4,7 @@ defaults:
   - device: default
   - dataset: default
   - model/generator: demucs
+  - loss: default
 
 # Training option
 restart: false
@@ -14,9 +15,6 @@ batch_size: 64
 batch_divide: 1
 lr: 0.0003
 split_valid: false
-
-# Loss
-auxiliary_loss: L1Loss
 
 # Other options
 show: false # Show model architecture, size and exit
