@@ -210,7 +210,6 @@ def main(cfg):
         criterion["stft"] = MultiResolutionSTFTLoss().to(device)
     assert criterion
     print(criterion)
-    valid_criterion = nn.L1Loss()
 
     # define optimizers
     optimizer = th.optim.Adam(model["generator"].parameters(), lr=cfg.lr)
