@@ -194,7 +194,7 @@ class Trainer(object):
             sampler_epoch = epoch * self.config.repeat
             if self.config.seed is not None:
                 sampler_epoch += self.config.seed * 1000
-            self.sampler.set_epoch(sampler_epoch)
+            self.sampler["train"].set_epoch(sampler_epoch)
         for repetition in range(self.config.repeat):
             tq = tqdm(self.data_loader["train"],
                       ncols=120,
@@ -268,7 +268,7 @@ class Trainer(object):
                                grad=f"{grad_norm:.5f}")
 
             if self.config.device.world_size > 1:
-                self.sampler.epoch += 1
+                self.sampler["train"].epoch += 1
 
         if self.config.device.world_size > 1:
             current_loss = average_metric(current_loss)
