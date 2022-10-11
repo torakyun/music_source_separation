@@ -58,6 +58,68 @@ class Trainer(object):
         self.device = device
         # self.writer = SummaryWriter(config["outdir"])
         self.total_train_loss = defaultdict(float)
+    def run(self):
+        # checkpoint log
+        best_loss = float("inf")
+        for epoch, metrics in enumerate(self.metrics):
+            print(f"Epoch {epoch:03d}: "
+                  f"train={metrics['train']:.8f} "
+                  f"valid={metrics['valid']:.8f} "
+                  f"best={metrics['best']:.4f} "
+                  f"ms={metrics.get('true_model_size', 0):.2f}MB "
+                  f"cms={metrics.get('compressed_model_size', 0):.2f}MB "
+                  f"duration={human_seconds(metrics['duration'])}")
+            best_loss = metrics['best']
+
+        for epoch in range(len(self.metrics), self.config.epochs):
+            begin = time.time()
+            self.model["generator"].train()
+            train_loss, model_size = self._train_epoch(epoch)
+            self.model["generator"].eval()
+            valid_loss = self._valid_epoch(epoch)
+
+            ms = 0
+            cms = 0
+            if self.quantizer and self.config.device.rank == 0:
+                ms = self.quantizer.true_model_size()
+                cms = self.quantizer.compressed_model_size(
+                    num_workers=min(40, self.config.device.world_size * 10))
+
+            duration = time.time() - begin
+            if valid_loss < best_loss and ms <= self.config.ms_target:
+                best_loss = valid_loss
+                self.best_state = {
+                    key: value.to("cpu").clone()
+                    for key, value in self.model["generator"].module.state_dict().items()
+                } if self.config.device.world_size > 1 else {
+                    key: value.to("cpu").clone()
+                    for key, value in self.model["generator"].state_dict().items()
+                }
+
+            self.metrics.append({
+                "train": train_loss,
+                "valid": valid_loss,
+                "best": best_loss,
+                "duration": duration,
+                "model_size": model_size,
+                "true_model_size": ms,
+                "compressed_model_size": cms,
+            })
+            if self.config.device.rank == 0:
+                log_folder = self.outdir / self.config.outdir.logs
+                metrics_path = log_folder / f"{self.config.name}.json"
+                json.dump(self.metrics, open(metrics_path, "w"))
+                checkpoint_folder = self.outdir / self.config.outdir.checkpoints
+                checkpoint_folder.mkdir(exist_ok=True, parents=True)
+                checkpoint_path = checkpoint_folder / f"{self.config.name}.th"
+                checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"
+                self.save_checkpoint(checkpoint_tmp_path)
+                checkpoint_tmp_path.rename(checkpoint_path)
+
+            print(f"Epoch {epoch:03d}: "
+                  f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
+                  f"cms={cms:.2f}MB "
+                  f"duration={human_seconds(duration)}")
 
     def save_checkpoint(self, checkpoint_path):
         """Save checkpoint.

@@ -258,90 +258,39 @@ def main(cfg):
             save_state(state, model_folder / model_name)
         return
 
+    # run training loop
     if cfg.device.rank == 0:
         done = log_folder / f"{name}.done"
         if done.exists():
             done.unlink()
-
-    best_loss = float("inf")
-    for epoch, metrics in enumerate(trainer.metrics):
-        print(f"Epoch {epoch:03d}: "
-              f"train={metrics['train']:.8f} "
-              f"valid={metrics['valid']:.8f} "
-              f"best={metrics['best']:.4f} "
-              f"ms={metrics.get('true_model_size', 0):.2f}MB "
-              f"cms={metrics.get('compressed_model_size', 0):.2f}MB "
-              f"duration={human_seconds(metrics['duration'])}")
-        best_loss = metrics['best']
-
-    for epoch in range(len(trainer.metrics), cfg.epochs):
-        begin = time.time()
-        model.train()
-        train_loss, model_size = trainer._train_epoch(epoch)
+    try:
+        trainer.run()
+        if cfg.device.world_size > 1:
+            distributed.barrier()
+    finally:
+        model = model["generator"].module if cfg.device.world_size > 1 else model["generator"]
+        model.load_state_dict(trainer.best_state)
+        if cfg.device.eval_cpu:
+            device = "cpu"
+            model.to(device)
         model.eval()
-        valid_loss = trainer._valid_epoch(epoch)
-
-        ms = 0
-        cms = 0
-        if quantizer and cfg.device.rank == 0:
-            ms = quantizer.true_model_size()
-            cms = quantizer.compressed_model_size(num_workers=min(40, cfg.device.world_size * 10))
-
-        duration = time.time() - begin
-        if valid_loss < best_loss and ms <= cfg.ms_target:
-            best_loss = valid_loss
-            trainer.best_state = {
-                key: value.to("cpu").clone()
-                for key, value in model.state_dict().items()
-            }
-
-        trainer.metrics.append({
-            "train": train_loss,
-            "valid": valid_loss,
-            "best": best_loss,
-            "duration": duration,
-            "model_size": model_size,
-            "true_model_size": ms,
-            "compressed_model_size": cms,
-        })
         eval_folder = out / cfg.outdir.evals / name
         eval_folder.mkdir(exist_ok=True, parents=True)
+        evaluate(model, cfg.dataset.musdb.path, eval_folder,
+                is_wav=cfg.dataset.musdb.is_wav,
+                rank=cfg.device.rank,
+                world_size=cfg.device.world_size,
+                device=device,
+                save=cfg.save,
+                split=cfg.split_valid,
+                shifts=cfg.dataset.shifts,
+                overlap=cfg.dataset.overlap,
+                workers=cfg.device.eval_workers)
+        model.to("cpu")
         if cfg.device.rank == 0:
-            json.dump(trainer.metrics, open(metrics_path, "w"))
-
-        if cfg.device.rank == 0 and not cfg.test:
-            trainer.save_checkpoint(checkpoint_tmp)
-            checkpoint_tmp.rename(checkpoint)
-
-        print(f"Epoch {epoch:03d}: "
-              f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
-              f"cms={cms:.2f}MB "
-              f"duration={human_seconds(duration)}")
-
-    if cfg.device.world_size > 1:
-        distributed.barrier()
-
-    del dmodel
-    model.load_state_dict(trainer.best_state)
-    if cfg.device.eval_cpu:
-        device = "cpu"
-        model.to(device)
-    model.eval()
-    evaluate(model, cfg.dataset.musdb.path, eval_folder,
-             is_wav=cfg.dataset.musdb.is_wav,
-             rank=cfg.device.rank,
-             world_size=cfg.device.world_size,
-             device=device,
-             save=cfg.save,
-             split=cfg.split_valid,
-             shifts=cfg.dataset.shifts,
-             overlap=cfg.dataset.overlap,
-             workers=cfg.device.eval_workers)
-    model.to("cpu")
-    if cfg.device.rank == 0:
             save_model(model, quantizer, cfg, model_folder / model_name)
-        print("done")
-        done.write_text("done")
+            print("done")
+            done.write_text("done")
 
 
 if __name__ == "__main__":
