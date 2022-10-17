@@ -127,13 +127,14 @@ def main(cfg):
     metadata_folder = Path(cfg.dataset.musdb.metadata)
     metadata_folder.mkdir(exist_ok=True, parents=True)
     if cfg.dataset.raw.path:
-        train_set = Rawset(cfg.dataset.raw.path / "train",
+        raw_path = Path(cfg.dataset.raw.path)
+        train_set = Rawset(raw_path / "train",
                            samples=samples,
                            channels=cfg.dataset.audio_channels,
                            streams=range(1, len(model["generator"].sources) + 1),
                            stride=cfg.dataset.data_stride)
 
-        valid_set = Rawset(cfg.dataset.raw.path / "valid", channels=cfg.dataset.audio_channels)
+        valid_set = Rawset(raw_path / "valid", channels=cfg.dataset.audio_channels)
     elif cfg.dataset.wav.path:
         train_set, valid_set = get_wav_datasets(cfg, samples, model["generator"].sources)
 
