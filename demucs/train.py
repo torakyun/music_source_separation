@@ -119,15 +119,7 @@ class Trainer(object):
                 "compressed_model_size": cms,
             })
             if self.config.device.rank == 0:
-                log_folder = self.outdir / self.config.outdir.logs
-                metrics_path = log_folder / f"{self.config.name}.json"
-                json.dump(self.metrics, open(metrics_path, "w"))
-                checkpoint_folder = self.outdir / self.config.outdir.checkpoints
-                checkpoint_folder.mkdir(exist_ok=True, parents=True)
-                checkpoint_path = checkpoint_folder / f"{self.config.name}.th"
-                checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"
-                self.save_checkpoint(checkpoint_tmp_path)
-                checkpoint_tmp_path.rename(checkpoint_path)
+                self._check_save_interval()
 
             print(f"Epoch {epoch:03d}: "
                   f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
@@ -334,6 +326,18 @@ class Trainer(object):
             current_loss = average_metric(current_loss)
         return current_loss
 
+
+    def _check_save_interval(self):
+        # save to file
+        log_folder = self.outdir / self.config.outdir.logs
+        metrics_path = log_folder / f"{self.config.name}.json"
+        json.dump(self.metrics, open(metrics_path, "w"))
+        checkpoint_folder = self.outdir / self.config.outdir.checkpoints
+        checkpoint_folder.mkdir(exist_ok=True, parents=True)
+        checkpoint_path = checkpoint_folder / f"{self.config.name}.th"
+        checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"
+        self.save_checkpoint(checkpoint_tmp_path)
+        checkpoint_tmp_path.rename(checkpoint_path)
 
 
 
