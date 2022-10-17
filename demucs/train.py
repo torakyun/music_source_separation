@@ -91,6 +91,7 @@ class Trainer(object):
             self.model["generator"].eval()
             valid_loss = self._valid_epoch(epoch)
 
+            # compressed model size
             ms = 0
             cms = 0
             if self.quantizer and self.config.device.rank == 0:
@@ -98,7 +99,10 @@ class Trainer(object):
                 cms = self.quantizer.compressed_model_size(
                     num_workers=min(40, self.config.device.world_size * 10))
 
+            # calculate duration
             duration = time.time() - begin
+
+            # renew best state
             if valid_loss < best_loss and ms <= self.config.ms_target:
                 best_loss = valid_loss
                 self.best_state = {
