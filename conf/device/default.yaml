@@ -2,3 +2,5 @@ workers: 10 # 10
 eval_workers: 2 # 2
 device:
 eval_cpu: false
+world_size: 1
+rank: 0
