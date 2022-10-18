@@ -101,17 +101,16 @@ def main(cfg):
         "generator": generator_class(
             **cfg.model.generator.params,
         ).to(device),
-        "discriminator": None,
     }
-    # if cfg.loss.adversarial["lambda"]:
-    #     discriminator_class = getattr(
-    #         models,
-    #         # keep compatibility
-    #         cfg.model.discriminator.get("name", "ParallelWaveGANDiscriminator"),
-    #     )
-    #     model["discriminator"] = discriminator_class(
-    #         **cfg.model.discriminator.params,
-    #     ).to(device)
+    if cfg.loss.adversarial["lambda"]:
+        discriminator_class = getattr(
+            models,
+            # keep compatibility
+            cfg.model.discriminator.get("name", "ParallelWaveGANDiscriminator"),
+        )
+        model["discriminator"] = discriminator_class(
+            **cfg.model.discriminator.params,
+        ).to(device)
 
     if cfg.show:
         print(model)
@@ -214,11 +213,32 @@ def main(cfg):
         criterion["mse"] = nn.MSELoss()
     if cfg.loss.stft["lambda"]:
         criterion["stft"] = MultiResolutionSTFTLoss().to(device)
+    if cfg.loss.adversarial["lambda"]:
+        criterion["gen_adv"] = GeneratorAdversarialLoss(
+            # keep compatibility
+            **cfg.loss.adversarial.get("generator_params", {})
+        ).to(device)
+        criterion["dis_adv"] = DiscriminatorAdversarialLoss(
+            # keep compatibility
+            **cfg.loss.adversarial.get("discriminator_params", {})
+        ).to(device)
     assert criterion
     print(criterion)
 
     # define optimizers
-    optimizer = th.optim.Adam(model["generator"].parameters(), lr=cfg.lr)
+    generator_optimizer_class = th.optim.Adam
+    optimizer = {
+        "generator": generator_optimizer_class(
+            model["generator"].parameters(),
+            lr=cfg.lr,
+        ),
+    }
+    if cfg.loss.adversarial["lambda"]:
+        discriminator_optimizer_class = th.optim.Adam
+        optimizer["discriminator"] = discriminator_optimizer_class(
+            model["discriminator"].parameters(),
+            lr=cfg.lr,
+        )
 
     quantizer = None
     quantizer = get_quantizer(model["generator"], cfg, optimizer)
@@ -227,6 +247,10 @@ def main(cfg):
         model["generator"] = DistributedDataParallel(model["generator"],
                                                      device_ids=[th.cuda.current_device()],
                                                      output_device=th.cuda.current_device())
+        if model["discriminator"]:
+            model["discriminator"] = DistributedDataParallel(model["discriminator"],
+                                                             device_ids=[th.cuda.current_device()],
+                                                             output_device=th.cuda.current_device())
 
     # define Trainer
     cfg.use_adv = False
@@ -237,7 +261,7 @@ def main(cfg):
         model=model,
         quantizer=quantizer,
         criterion=criterion,
-        optimizer={"generator": optimizer},
+        optimizer=optimizer,
         config=cfg,
         device=device,
     )
