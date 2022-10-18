@@ -240,6 +240,7 @@ def main(cfg):
             lr=cfg.lr,
         )
 
+    # define quantizer
     quantizer = None
     quantizer = get_quantizer(model["generator"], cfg, optimizer)
 
