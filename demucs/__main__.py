@@ -39,7 +39,16 @@ import hydra
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(cfg):
     OmegaConf.set_struct(cfg, False)
-    name = cfg.name
+    try:
+        name = cfg.name
+    except:
+        import re
+        args = sys.argv[2:]
+        ignore_args = ["restart", "show", "save", "save_model", "save_state", "device.workers"]
+        name = [arg for arg in args if not re.split(
+            "[+=]", arg)[-2] in ignore_args] if args else ["default"]
+        name = "_".join(name) if args else "default"
+        cfg.name = name
     print(f"Experiment {name}")
 
     if cfg.dataset.musdb.path is None and cfg.device.rank == 0:
@@ -274,21 +283,24 @@ def main(cfg):
         model.eval()
         eval_folder = out / cfg.outdir.evals / name
         eval_folder.mkdir(exist_ok=True, parents=True)
-        evaluate(model, cfg.dataset.musdb.path, eval_folder,
-                is_wav=cfg.dataset.musdb.is_wav,
-                rank=cfg.device.rank,
-                world_size=cfg.device.world_size,
-                device=device,
-                save=cfg.save,
-                split=cfg.split_valid,
-                shifts=cfg.dataset.shifts,
-                overlap=cfg.dataset.overlap,
-                workers=cfg.device.eval_workers)
+        stat = trainer._eval_epoch()
+        # evaluate(model, cfg.dataset.musdb.path, eval_folder,
+        #          is_wav=cfg.dataset.musdb.is_wav,
+        #          rank=cfg.device.rank,
+        #          world_size=cfg.device.world_size,
+        #          device=device,
+        #          save=cfg.save,
+        #          split=cfg.split_valid,
+        #          shifts=cfg.dataset.shifts,
+        #          overlap=cfg.dataset.overlap,
+        #          workers=cfg.device.eval_workers)
         model.to("cpu")
         if cfg.device.rank == 0:
             save_model(model, quantizer, cfg, model_folder / model_name)
             print("done")
             done.write_text("done")
+    print("--------------------------", stat, "--------------------------")
+    return stat["all"]
 
 
 if __name__ == "__main__":
