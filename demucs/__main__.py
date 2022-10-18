@@ -191,7 +191,7 @@ def main(cfg):
         ),
         "valid": DataLoader(
             dataset=valid_set,
-            shuffle=False if cfg.device.world_size > 1 else True,
+            shuffle=False,
             batch_size=1,
             num_workers=cfg.device.workers,
             sampler=sampler["valid"],
