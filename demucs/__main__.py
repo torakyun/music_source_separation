@@ -225,8 +225,8 @@ def main(cfg):
 
     if cfg.device.world_size > 1:
         model["generator"] = DistributedDataParallel(model["generator"],
-                                         device_ids=[th.cuda.current_device()],
-                                         output_device=th.cuda.current_device())
+                                                     device_ids=[th.cuda.current_device()],
+                                                     output_device=th.cuda.current_device())
 
     # define Trainer
     cfg.use_adv = False
@@ -245,7 +245,7 @@ def main(cfg):
         trainer.load_checkpoint(checkpoint)
     except IOError:
         pass
-    
+
     # only save best state
     model_name = f"{name}.th"
     if cfg.save_model:
