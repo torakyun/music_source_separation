@@ -254,7 +254,6 @@ def main(cfg):
                                                              output_device=th.cuda.current_device())
 
     # define Trainer
-    cfg.use_adv = False
     trainer = Trainer(
         data_loader=data_loader,
         sampler=sampler,
