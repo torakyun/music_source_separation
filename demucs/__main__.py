@@ -81,8 +81,7 @@ def main(cfg):
             device = "cuda"
     else:
         device = cfg.device.device
-    cfg.device.distributed = cfg.device.world_size > 1
-    if cfg.device.distributed:
+    if cfg.device.world_size > 1:
         if device != "cuda" and cfg.device.rank == 0:
             print("Error: distributed training is only available with cuda device", file=sys.stderr)
             sys.exit(1)
