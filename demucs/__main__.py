@@ -223,7 +223,7 @@ def main(cfg):
     quantizer = None
     quantizer = get_quantizer(model["generator"], cfg, optimizer)
 
-    if cfg.device.distributed:
+    if cfg.device.world_size > 1:
         model["generator"] = DistributedDataParallel(model["generator"],
                                          device_ids=[th.cuda.current_device()],
                                          output_device=th.cuda.current_device())
