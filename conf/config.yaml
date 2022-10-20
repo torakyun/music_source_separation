@@ -31,12 +31,12 @@ qat: # If provided, use QAT training with that many bits.
 diffq: 0
 ms_target: 162 # Model size target in MB, when using DiffQ. Best model will be kept only if it is smaller than this target.
 
-# hydra
+# hydra + optuna
 hydra:
   run:
-    dir: ../outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ../out/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
-    dir: ../outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ../out/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweeper:
     sampler:
       seed: 123
