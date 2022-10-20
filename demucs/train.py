@@ -23,8 +23,9 @@ import torch
 from torch import distributed
 from tqdm import tqdm
 
+# from .test import evaluate
 from .audio import convert_audio
-from .utils import human_seconds, apply_model, average_metric, center_trim
+from .utils import human_seconds, apply_model, save_model, average_metric, center_trim
 
 
 class Trainer(object):
@@ -129,6 +130,35 @@ class Trainer(object):
                   f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
                   f"cms={cms:.2f}MB "
                   f"duration={human_seconds(duration)}")
+
+        # evaluate and save best model
+        if self.config.device.world_size > 1:
+            distributed.barrier()
+            self.model["generator"].module.load_state_dict(self.best_state)
+        else:
+            self.model["generator"].load_state_dict(self.best_state)
+        if self.config.device.eval_cpu:
+            device = "cpu"
+            self.model["generator"].to(device)
+        self.model["generator"].eval()
+        stat = self._eval_epoch()
+        # eval_folder = self.outdir / "evals" / self.config.name
+        # eval_folder.mkdir(exist_ok=True, parents=True)
+        # evaluate(self.model["generator"], self.config.dataset.musdb.path, eval_folder,
+        #          is_wav=self.config.dataset.musdb.is_wav,
+        #          rank=self.config.device.rank,
+        #          world_size=self.config.device.world_size,
+        #          device=self.device,
+        #          save=self.config.save,
+        #          split=self.config.split_valid,
+        #          shifts=self.config.dataset.shifts,
+        #          overlap=self.config.dataset.overlap,
+        #          workers=self.config.device.eval_workers)
+        self.model["generator"].to("cpu")
+        if self.config.device.rank == 0:
+            save_model(self.model["generator"], self.quantizer, self.config,
+                       self.outdir / "models" / f"{self.config.name}.th")
+        return stat
 
     def save_checkpoint(self, checkpoint_path):
         """Save checkpoint.

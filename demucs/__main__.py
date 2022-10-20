@@ -19,7 +19,6 @@ from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
 from .raw import Rawset
 from .repitch import RepitchedWrapper
-from .test import evaluate
 from .train import Trainer
 from .utils import (save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
@@ -305,36 +304,11 @@ def main(cfg):
         done = log_folder / f"{name}.done"
         if done.exists():
             done.unlink()
-    try:
-        trainer.run()
-        if cfg.device.world_size > 1:
-            distributed.barrier()
-    finally:
-        model = model["generator"].module if cfg.device.world_size > 1 else model["generator"]
-        model.load_state_dict(trainer.best_state)
-        if cfg.device.eval_cpu:
-            device = "cpu"
-            model.to(device)
-        model.eval()
-        eval_folder = out / cfg.outdir.evals / name
-        eval_folder.mkdir(exist_ok=True, parents=True)
-        stat = trainer._eval_epoch()
-        # evaluate(model, cfg.dataset.musdb.path, eval_folder,
-        #          is_wav=cfg.dataset.musdb.is_wav,
-        #          rank=cfg.device.rank,
-        #          world_size=cfg.device.world_size,
-        #          device=device,
-        #          save=cfg.save,
-        #          split=cfg.split_valid,
-        #          shifts=cfg.dataset.shifts,
-        #          overlap=cfg.dataset.overlap,
-        #          workers=cfg.device.eval_workers)
-        model.to("cpu")
-        if cfg.device.rank == 0:
-            save_model(model, quantizer, cfg, model_folder / model_name)
-            print("done")
-            done.write_text("done")
-    print("--------------------------", stat, "--------------------------")
+    stat = trainer.run()
+    print(stat, "\n--------------------------")
+    if cfg.device.rank == 0:
+        print("done")
+        done.write_text("done")
     return stat["all"]
 
 
