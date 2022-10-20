@@ -170,24 +170,17 @@ class Trainer(object):
         state_dict = {
             "metrics": self.metrics,
             "best_state": self.best_state,
+            "model": {
+                "generator": self.model["generator"].module.state_dict() if self.config.device.world_size > 1 else self.model["generator"].state_dict(),
+            },
             "optimizer": {
                 "generator": self.optimizer["generator"].state_dict(),
             },
         }
-        if self.config.device.world_size > 1:
-            state_dict["model"] = {
-                "generator": self.model["generator"].module.state_dict(),
-            }
-            if self.config.use_adv:
-                state_dict["optimizer"]["discriminator"] = self.optimizer["discriminator"].state_dict()
-        else:
-            state_dict["model"] = {
-                "generator": self.model["generator"].state_dict(),
-            }
-        if self.config.use_adv:
-            state_dict["optimizer"]["discriminator"] = self.optimizer["discriminator"].state_dict()
+        if self.config.loss.adversarial["lambda"]:
             state_dict["model"]["discriminator"] = self.model["discriminator"].module.state_dict(
-            ) if self.config["distributed"] else self.model["discriminator"].state_dict()
+            ) if self.config.device.world_size > 1 else self.model["discriminator"].state_dict()
+            state_dict["optimizer"]["discriminator"] = self.optimizer["discriminator"].state_dict()
 
         if not os.path.exists(os.path.dirname(checkpoint_path)):
             os.makedirs(os.path.dirname(checkpoint_path))
