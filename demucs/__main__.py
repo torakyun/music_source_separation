@@ -83,7 +83,8 @@ def main(cfg):
         device = cfg.device.device
     if cfg.device.world_size > 1:
         if device != "cuda" and cfg.device.rank == 0:
-            print("Error: distributed training is only available with cuda device", file=sys.stderr)
+            print(
+                "Error: distributed training is only available with cuda device", file=sys.stderr)
             sys.exit(1)
         th.cuda.set_device(cfg.device.rank % th.cuda.device_count())
         distributed.init_process_group(backend="nccl",
@@ -106,7 +107,8 @@ def main(cfg):
         discriminator_class = getattr(
             models,
             # keep compatibility
-            cfg.model.discriminator.get("name", "ParallelWaveGANDiscriminator"),
+            cfg.model.discriminator.get(
+                "name", "ParallelWaveGANDiscriminator"),
         )
         model["discriminator"] = discriminator_class(
             **cfg.model.discriminator.params,
@@ -138,22 +140,27 @@ def main(cfg):
         train_set = Rawset(raw_path / "train",
                            samples=samples,
                            channels=cfg.dataset.audio_channels,
-                           streams=range(1, len(model["generator"].sources) + 1),
+                           streams=range(
+                               1, len(model["generator"].sources) + 1),
                            stride=cfg.dataset.data_stride)
 
-        valid_set = Rawset(raw_path / "valid", channels=cfg.dataset.audio_channels)
+        valid_set = Rawset(raw_path / "valid",
+                           channels=cfg.dataset.audio_channels)
     elif cfg.dataset.wav.path:
-        train_set, valid_set = get_wav_datasets(cfg, samples, model["generator"].sources)
+        train_set, valid_set = get_wav_datasets(
+            cfg, samples, model["generator"].sources)
 
         if cfg.dataset.wav.concat:
             if cfg.dataset.musdb.is_wav:
-                mus_train, mus_valid = get_musdb_wav_datasets(cfg, samples, model.sources)
+                mus_train, mus_valid = get_musdb_wav_datasets(
+                    cfg, samples, model.sources)
             else:
                 mus_train, mus_valid = get_compressed_datasets(cfg, samples)
             train_set = ConcatDataset([train_set, mus_train])
             valid_set = ConcatDataset([valid_set, mus_valid])
     elif cfg.dataset.musdb.is_wav:
-        train_set, valid_set = get_musdb_wav_datasets(cfg, samples, model["generator"].sources)
+        train_set, valid_set = get_musdb_wav_datasets(
+            cfg, samples, model["generator"].sources)
     else:
         train_set, valid_set = get_compressed_datasets(cfg, samples)
     print("Train set and valid set sizes", len(train_set), len(valid_set))
@@ -246,11 +253,13 @@ def main(cfg):
 
     if cfg.device.world_size > 1:
         model["generator"] = DistributedDataParallel(model["generator"],
-                                                     device_ids=[th.cuda.current_device()],
+                                                     device_ids=[
+                                                         th.cuda.current_device()],
                                                      output_device=th.cuda.current_device())
         if model["discriminator"]:
             model["discriminator"] = DistributedDataParallel(model["discriminator"],
-                                                             device_ids=[th.cuda.current_device()],
+                                                             device_ids=[
+                                                                 th.cuda.current_device()],
                                                              output_device=th.cuda.current_device())
 
     # define Trainer

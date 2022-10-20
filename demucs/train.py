@@ -173,22 +173,24 @@ class Trainer(object):
         """
         state_dict = torch.load(checkpoint_path, map_location="cpu")
         if self.config.device.world_size > 1:
-            self.model["generator"].module.load_state_dict(state_dict["model"]["generator"])
+            self.model["generator"].module.load_state_dict(
+                state_dict["model"]["generator"])
         else:
-            self.model["generator"].load_state_dict(state_dict["model"]["generator"])
-        if self.config.use_adv:
+            self.model["generator"].load_state_dict(
+                state_dict["model"]["generator"])
+        if self.config.loss.adversarial["lambda"]:
             if self.config.device.world_size > 1:
                 self.model["discriminator"].module.load_state_dict(
                     state_dict["model"]["discriminator"])
             else:
-                self.model["discriminator"].load_state_dict(state_dict["model"]["discriminator"])
+                self.model["discriminator"].load_state_dict(
+                    state_dict["model"]["discriminator"])
         if not load_only_params:
             self.metrics = state_dict["metrics"]
             self.best_state = state_dict["best_state"]
             self.optimizer["generator"].load_state_dict(
-                state_dict["optimizer"]["generator"]
-            )
-            if self.config.use_adv:
+                state_dict["optimizer"]["generator"])
+            if self.config.loss.adversarial["lambda"]:
                 self.optimizer["discriminator"].load_state_dict(
                     state_dict["optimizer"]["discriminator"])
 
@@ -230,20 +232,23 @@ class Trainer(object):
 
                     # l1 loss
                     if self.config.loss.l1["lambda"]:
-                        l1_loss = self.criterion["l1"](estimates, sources_divide)
+                        l1_loss = self.criterion["l1"](
+                            estimates, sources[start::self.config.batch_divide])
                         l1_loss /= self.config.batch_divide
-                        gen_loss += self.config.loss.l1["lambda"] * l1_loss
                         self.total_train_loss["l1_loss"] += l1_loss.item()
+                        gen_loss += self.config.loss.l1["lambda"] * l1_loss
                         del l1_loss
 
                     # multi-resolution sfft loss
                     if self.config.loss.stft["lambda"]:
-                        sc_loss, mag_loss = self.criterion["stft"](estimates, sources_divide)
+                        sc_loss, mag_loss = self.criterion["stft"](
+                            estimates, sources[start::self.config.batch_divide])
                         sc_loss /= self.config.batch_divide
                         mag_loss /= self.config.batch_divide
-                        gen_loss += self.config.loss.stft["lambda"] * (sc_loss + mag_loss)
                         self.total_train_loss["spectral_convergence_loss"] += sc_loss.item()
                         self.total_train_loss["log_stft_magnitude_loss"] += mag_loss.item()
+                        gen_loss += self.config.loss.stft["lambda"] * (
+                            sc_loss + mag_loss)
                         del sc_loss, mag_loss
 
                     self.total_train_loss["gen_loss"] += gen_loss.item()
@@ -312,13 +317,15 @@ class Trainer(object):
             if self.config.loss.stft["lambda"]:
                 toral_sc_loss, total_mag_loss = 0, 0
                 for index in range(sources.size(0)):
-                    sc_loss, mag_loss = self.criterion["stft"](estimates[index], sources[index])
+                    sc_loss, mag_loss = self.criterion["stft"](
+                        estimates[index], sources[index])
                     toral_sc_loss += sc_loss.item()
                     total_mag_loss += mag_loss.item()
                     del sc_loss, mag_loss
                 toral_sc_loss /= sources.size(0)
                 total_mag_loss /= sources.size(0)
-                gen_loss += self.config.loss.stft["lambda"] * (toral_sc_loss + total_mag_loss)
+                gen_loss += self.config.loss.stft["lambda"] * \
+                    (toral_sc_loss + total_mag_loss)
                 self.total_valid_loss["spectral_convergence_loss"] += toral_sc_loss
                 self.total_valid_loss["log_stft_magnitude_loss"] += total_mag_loss
 
