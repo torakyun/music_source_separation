@@ -16,6 +16,7 @@ import re
 import torch as th
 
 from demucs.utils import free_port
+from demucs.__main__ import ignore_args
 
 
 def main():
@@ -23,7 +24,6 @@ def main():
     gpus = max(th.cuda.device_count(), 1)
 
     port = free_port()
-    ignore_args = ["restart", "show", "save", "save_model", "save_state", "epochs"]
     name = [arg for arg in args if not re.split(
         "[+=]", arg)[-2] in ignore_args] if args else ["default"]
     name = "_".join(name) if args else "default"

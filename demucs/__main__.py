@@ -36,6 +36,10 @@ from omegaconf import OmegaConf
 import hydra
 
 
+ignore_args = ["restart", "show", "save",
+               "save_model", "save_state", "device.workers"]
+
+
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(cfg):
     OmegaConf.set_struct(cfg, False)
@@ -44,7 +48,6 @@ def main(cfg):
     except:
         import re
         args = sys.argv[2:]
-        ignore_args = ["restart", "show", "save", "save_model", "save_state", "device.workers"]
         name = [arg for arg in args if not re.split(
             "[+=]", arg)[-2] in ignore_args] if args else ["default"]
         name = "_".join(name) if args else "default"
