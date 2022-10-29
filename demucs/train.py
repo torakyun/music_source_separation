@@ -142,6 +142,7 @@ class Trainer(object):
                 "compressed_model_size": cms,
             })
             if self.config.device.rank == 0:
+                self._check_log_interval(epoch)
                 self._check_save_interval()
 
             print(f"Epoch {epoch:03d}: "
@@ -313,7 +314,7 @@ class Trainer(object):
                         l1_loss = self.criterion["l1"](
                             estimates, sources[start::self.config.batch_divide])
                         l1_loss /= self.config.batch_divide
-                        self.total_train_loss["l1_loss"] += l1_loss.item()
+                        self.total_train_loss["train/l1_loss"] += l1_loss.item()
                         gen_loss += self.config.loss.l1["lambda"] * l1_loss
                         del l1_loss
 
@@ -323,8 +324,8 @@ class Trainer(object):
                             estimates, sources[start::self.config.batch_divide])
                         sc_loss /= self.config.batch_divide
                         mag_loss /= self.config.batch_divide
-                        self.total_train_loss["spectral_convergence_loss"] += sc_loss.item()
-                        self.total_train_loss["log_stft_magnitude_loss"] += mag_loss.item()
+                        self.total_train_loss["train/spectral_convergence_loss"] += sc_loss.item()
+                        self.total_train_loss["train/log_stft_magnitude_loss"] += mag_loss.item()
                         gen_loss += self.config.loss.stft["lambda"] * (
                             sc_loss + mag_loss)
                         del sc_loss, mag_loss
@@ -441,7 +442,7 @@ class Trainer(object):
             if self.config.loss.l1["lambda"]:
                 l1_loss = self.criterion["l1"](estimates, sources).item()
                 gen_loss += self.config.loss.l1["lambda"] * l1_loss
-                self.total_valid_loss["l1_loss"] += l1_loss
+                self.total_valid_loss["valid/l1_loss"] += l1_loss
 
             # multi-resolution sfft loss
             if self.config.loss.stft["lambda"]:
@@ -456,13 +457,15 @@ class Trainer(object):
                 total_mag_loss /= sources.size(0)
                 gen_loss += self.config.loss.stft["lambda"] * \
                     (toral_sc_loss + total_mag_loss)
-                self.total_valid_loss["spectral_convergence_loss"] += toral_sc_loss
-                self.total_valid_loss["log_stft_magnitude_loss"] += total_mag_loss
+                self.total_valid_loss["valid/spectral_convergence_loss"] += toral_sc_loss
+                self.total_valid_loss["valid/log_stft_magnitude_loss"] += total_mag_loss
 
-            self.total_valid_loss["gen_loss"] += gen_loss
+            self.total_valid_loss["valid/gen_loss"] += gen_loss
             del estimates, streams, sources
 
-        current_loss = self.total_valid_loss["gen_loss"] / (1 + idx)
+        for k, v in self.total_valid_loss.items():
+            self.total_valid_loss[k] = v / (1 + idx)
+        current_loss = self.total_valid_loss["valid/gen_loss"]
         if self.config.device.world_size > 1:
             current_loss = average_metric(current_loss)
         return current_loss
