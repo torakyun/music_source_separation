@@ -105,6 +105,8 @@ class Trainer(object):
 
         for epoch in range(len(self.metrics), self.config.epochs):
             begin = time.time()
+
+            # train and valid
             self.model["generator"].train()
             train_loss, model_size = self._train_epoch(epoch)
             self.model["generator"].eval()
@@ -132,6 +134,7 @@ class Trainer(object):
                     for key, value in self.model["generator"].state_dict().items()
                 }
 
+            # save metrics
             self.metrics.append({
                 "train": train_loss,
                 "valid": valid_loss,
@@ -146,6 +149,7 @@ class Trainer(object):
                 self._check_save_interval()
             self._check_eval_interval(epoch)
 
+            # logging
             print(f"Epoch {epoch:03d}: "
                   f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
                   f"cms={cms:.2f}MB "
