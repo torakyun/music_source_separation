@@ -301,10 +301,10 @@ class Trainer(object):
                 #      Generator      #
                 #######################
                 for start in range(self.config.batch_divide):
-                    sources_divide = sources[start::self.config.batch_divide]
-                    mix_divide = mix[start::self.config.batch_divide]
-                    estimates = self.model["generator"](mix_divide)
-                    sources_divide = center_trim(sources_divide, estimates)
+                    estimates = self.model["generator"](
+                        mix[start::self.config.batch_divide])
+                    if start == 0:
+                        sources = center_trim(sources, estimates)
 
                     # initialize
                     gen_loss = 0.0
