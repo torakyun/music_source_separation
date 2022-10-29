@@ -18,6 +18,7 @@ batch_size: 64
 batch_divide: 1
 lr: 0.0003
 split_valid: false
+pretrained: 
 
 # Other options
 show: false # Show model architecture, size and exit

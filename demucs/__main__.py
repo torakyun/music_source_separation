@@ -275,7 +275,12 @@ def main(cfg):
         device=device,
     )
     try:
-        trainer.load_checkpoint(checkpoint)
+        if cfg.pretrained:
+            trainer.load_checkpoint(
+                checkpoint_folder / (cfg.pretrained.replace("-", "=") + ".th"), load_only_params=True)
+            print("load pretrained")
+        else:
+            trainer.load_checkpoint(checkpoint)
     except IOError:
         pass
 
