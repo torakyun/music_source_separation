@@ -46,10 +46,10 @@ def main(cfg):
         name = cfg.name
     except:
         import re
-        args = sys.argv[2:]
-        name = [arg for arg in args if not re.split(
-            "[+=]", arg)[-2] in ignore_args] if args else ["default"]
-        name = "_".join(name) if args else "default"
+        args = sys.argv[1:]
+        name = [arg for arg in args if not arg == "-m" and not arg == "--multirun" and re.split(
+            "[+=]", arg)[-2] not in ignore_args] if args else ["default"]
+        name = "_".join(name)
         cfg.name = name
     print(f"Experiment {name}")
 
