@@ -17,7 +17,9 @@ import numpy as np
 
 from collections import defaultdict
 
-from tensorboardX import SummaryWriter
+# from tensorboardX import SummaryWriter
+import mlflow
+from omegaconf import DictConfig, ListConfig
 
 import torch
 from torch import distributed
@@ -26,6 +28,10 @@ from tqdm import tqdm
 # from .test import evaluate
 from .audio import convert_audio
 from .utils import human_seconds, apply_model, save_model, average_metric, center_trim
+
+
+ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half",
+                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "dataset", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.params"]
 
 
 class Trainer(object):
@@ -55,6 +61,7 @@ class Trainer(object):
             device (torch.deive): Pytorch device instance.
 
         """
+        self.run_id = None
         self.metrics = []
         self.data_loader = data_loader
         self.sampler = sampler
@@ -67,12 +74,23 @@ class Trainer(object):
         self.config = config
         self.device = device
         self.outdir = Path(config.outdir.out)
-        # self.writer = SummaryWriter(self.outdir / "tf")
+        # self.writer = SummaryWriter(self.outdir / "tensorboard" / f"{self.config.name}")
         self.total_train_loss = defaultdict(float)
         self.total_valid_loss = defaultdict(float)
         self.total_eval_loss = defaultdict(float)
 
     def run(self):
+        # mlflow setting
+        if self.config.device.rank == 0:
+            mlflow.set_tracking_uri(self.config.mlflow.tracking_uri)
+            mlflow.set_experiment(self.config.mlflow.experiment_name)
+            if self.run_id:
+                mlflow.start_run(run_id=self.run_id)
+            else:
+                mlflow.start_run(run_id=None)
+                self.run_id = mlflow.active_run().info.run_id
+        self.log_params_from_omegaconf_dict(self.config)
+
         # checkpoint log
         best_loss = float("inf")
         for epoch, metrics in enumerate(self.metrics):
@@ -158,6 +176,9 @@ class Trainer(object):
         if self.config.device.rank == 0:
             save_model(self.model["generator"], self.quantizer, self.config,
                        self.outdir / "models" / f"{self.config.name}.th")
+
+        mlflow.end_run()
+        # self.writer.close()
         return stat
 
     def save_checkpoint(self, checkpoint_path):
@@ -168,6 +189,7 @@ class Trainer(object):
 
         """
         state_dict = {
+            "run_id": self.run_id,
             "metrics": self.metrics,
             "best_state": self.best_state,
             "model": {
@@ -209,6 +231,7 @@ class Trainer(object):
                 self.model["discriminator"].load_state_dict(
                     state_dict["model"]["discriminator"])
         if not load_only_params:
+            self.run_id = state_dict["run_id"]
             self.metrics = state_dict["metrics"]
             self.best_state = state_dict["best_state"]
             self.optimizer["generator"].load_state_dict(
@@ -458,4 +481,13 @@ class Trainer(object):
         checkpoint_tmp_path.rename(checkpoint_path)
 
 
+    def _check_log_interval(self, epoch):
+        # write logs
+        mlflow.log_metrics(self.total_train_loss, epoch)
+        mlflow.log_metrics(self.total_valid_loss, epoch)
+        # self.writer.add_scalars('train_loss', self.total_train_loss, epoch)
+        # self.writer.add_scalars('valid_loss', self.total_valid_loss, epoch)
 
+        # reset
+        self.total_train_loss = defaultdict(float)
+        self.total_valid_loss = defaultdict(float)
