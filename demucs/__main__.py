@@ -106,14 +106,11 @@ def main(cfg):
         ).to(device),
     }
     if cfg.loss.adversarial["lambda"]:
-        discriminator_class = getattr(
-            models,
-            # keep compatibility
-            cfg.model.discriminator.get(
+        model["discriminator"] = models.Discriminators(
+            name=cfg.model.discriminator.get(
                 "name", "ParallelWaveGANDiscriminator"),
-        )
-        model["discriminator"] = discriminator_class(
-            **cfg.model.discriminator.params,
+            params=cfg.model.discriminator.get("params", {}),
+            separate=cfg.model.discriminator.get("separate", "full"),
         ).to(device)
 
     if cfg.show:

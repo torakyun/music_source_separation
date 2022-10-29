@@ -217,6 +217,35 @@ class Trainer(object):
                 self.optimizer["discriminator"].load_state_dict(
                     state_dict["optimizer"]["discriminator"])
 
+    def set_requires_grad(self, nets, requires_grad=False):
+        """Set requies_grad=Fasle for all the networks to avoid unnecessary computations
+        Parameters:
+            nets (network list)   -- a list of networks
+            requires_grad (bool)  -- whether the networks require gradients or not
+        """
+        if not isinstance(nets, list):
+            nets = [nets]
+        for net in nets:
+            if net is not None:
+                for param in net.parameters():
+                    param.requires_grad = requires_grad
+
+    def log_params_from_omegaconf_dict(self, params):
+        for param_name, element in params.items():
+            self._explore_recursive(param_name, element)
+
+    def _explore_recursive(self, parent_name, element):
+        if parent_name in ignore_params:
+            return
+        if isinstance(element, DictConfig):
+            for k, v in element.items():
+                self._explore_recursive(f'{parent_name}.{k}', v)
+        elif isinstance(element, ListConfig):
+            for i, v in enumerate(element):
+                self._explore_recursive(f'{parent_name}.{i}', v)
+        else:
+            # print(parent_name, "=", element)
+            mlflow.log_param(parent_name, element)
 
     def _train_epoch(self, epoch):
         """Train model one epoch."""
@@ -244,6 +273,9 @@ class Trainer(object):
                 sources = self.augment(sources)
                 mix = sources.sum(dim=1)
 
+                #######################
+                #      Generator      #
+                #######################
                 for start in range(self.config.batch_divide):
                     sources_divide = sources[start::self.config.batch_divide]
                     mix_divide = mix[start::self.config.batch_divide]
@@ -274,11 +306,19 @@ class Trainer(object):
                             sc_loss + mag_loss)
                         del sc_loss, mag_loss
 
-                    self.total_train_loss["gen_loss"] += gen_loss.item()
-                    gen_loss.backward()
+                    # adversarial loss
+                    if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                        self.set_requires_grad(
+                            self.model["discriminator"], False)
+                        p_ = self.model["discriminator"](estimates)
+                        adv_loss = self.criterion["gen_adv"](p_)
+                        self.total_train_loss["train/adversarial_loss"] += adv_loss.item()
+                        gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
+                        del p_, adv_loss
 
-                    # free some space before next round
-                    del sources_divide, mix_divide, estimates, gen_loss
+                    self.total_train_loss["train/gen_loss"] += gen_loss.item()
+                    gen_loss.backward()
+                    del gen_loss, estimates
 
                 # model size loss
                 model_size = 0
@@ -288,17 +328,61 @@ class Trainer(object):
                     model_size = model_size.item()
 
                 # update generator
-                grad_norm = 0
+                g_grad_norm = 0
                 for p in self.model["generator"].parameters():
                     if p.grad is not None:
-                        grad_norm += p.grad.data.norm()**2
-                grad_norm = grad_norm**0.5
+                        g_grad_norm += p.grad.data.norm()**2
+                g_grad_norm = g_grad_norm**0.5
                 self.optimizer["generator"].step()
                 self.optimizer["generator"].zero_grad()
 
-                current_loss = self.total_train_loss["gen_loss"] / (1 + idx)
+                #######################
+                #    Discriminator    #
+                #######################
+                if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                    for start in range(self.config.batch_divide):
+                        with torch.no_grad():
+                            estimates = self.model["generator"](
+                                mix[start::self.config.batch_divide])
+
+                        # initialize
+                        dis_loss = 0.0
+
+                        # discriminator loss
+                        self.set_requires_grad(
+                            self.model["discriminator"], True)
+                        p = self.model["discriminator"](
+                            sources[start::self.config.batch_divide])
+                        p_ = self.model["discriminator"](estimates)
+                        real_loss, fake_loss = self.criterion["dis_adv"](p_, p)
+                        real_loss /= self.config.batch_divide
+                        fake_loss /= self.config.batch_divide
+                        self.total_train_loss["train/real_loss"] += real_loss.item()
+                        self.total_train_loss["train/fake_loss"] += fake_loss.item()
+                        dis_loss += real_loss + fake_loss
+                        del real_loss, fake_loss
+
+                        self.total_train_loss["train/discriminator_loss"] += dis_loss.item()
+                        dis_loss.backward()
+                        del dis_loss, estimates
+
+                    # update discriminator
+                    d_grad_norm = 0
+                    for p in self.model["generator"].parameters():
+                        if p.grad is not None:
+                            d_grad_norm += p.grad.data.norm()**2
+                    d_grad_norm = d_grad_norm**0.5
+                    self.optimizer["discriminator"].step()
+                    self.optimizer["discriminator"].zero_grad()
+
+                # free some space before next round
+                del sources, mix
+
+                for k, v in self.total_train_loss.items():
+                    self.total_train_loss[k] = v / (1 + idx)
+                current_loss = self.total_train_loss["train/gen_loss"]
                 tq.set_postfix(loss=f"{current_loss:.4f}", ms=f"{model_size:.2f}",
-                               grad=f"{grad_norm:.5f}")
+                               grad=f"{g_grad_norm:.5f}")
 
             if self.config.device.world_size > 1:
                 self.sampler["train"].epoch += 1
