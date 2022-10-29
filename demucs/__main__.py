@@ -115,7 +115,8 @@ def main(cfg):
 
     if cfg.show:
         print(model)
-        size = sizeof_fmt(4 * sum(p.numel() for p in model.parameters()))
+        size = sizeof_fmt(4 * sum(p.numel()
+                                  for p in model["generator"].parameters()))
         print(f"Model size {size}")
         return
 
