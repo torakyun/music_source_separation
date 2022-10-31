@@ -35,8 +35,8 @@ from omegaconf import OmegaConf
 import hydra
 
 
-ignore_args = ["restart", "show", "save",
-               "save_model", "save_state", "device.workers"]
+ignore_args = ["restart", "show", "save", "save_model", "save_state", "device.workers",
+               "dataset.remix_group_size", "model.generator.params.depth", "model.generator.params.lstm_layers"]
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
