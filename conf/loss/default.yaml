@@ -8,10 +8,23 @@ mse:
 stft:
   lambda: 0
   params:
-    fft_sizes: [1024, 2048, 512] # List of FFT size for STFT-based loss.
-    hop_sizes: [120, 240, 50] # List of hop size for STFT-based loss
-    win_lengths: [600, 1200, 240] # List of window length for STFT-based loss.
+    fft_sizes: [2048, 4096, 1024] # [1024, 2048, 512] # List of FFT size for STFT-based loss.
+    hop_sizes: [240, 480, 100] # [120, 240, 50] # List of hop size for STFT-based loss
+    win_lengths: [1200, 2400, 480] # [600, 1200, 240] # List of window length for STFT-based loss.
     window: "hann_window" # Window function for STFT-based loss
+
+mel:
+  lambda: 0
+  params:
+    fs: 44100
+    fft_size: 2048
+    hop_size: 240
+    win_length: 1200
+    window: "hann"
+    num_mels: 80
+    fmin: 0
+    fmax: 22050
+    log_base: null
 
 # Adversarial Loss
 adversarial:
@@ -25,3 +38,11 @@ adversarial:
     average_by_scales: false # Whether to average loss by #scales.
     loss_type: "mse"
   train_start_epoch: -1 # 30
+
+feat_match:
+  lambda: 0
+  params:
+    average_by_discriminators: true # Whether to average loss by #discriminators.
+    average_by_scales: false # Whether to average loss by #scales.
+    average_by_layers: false # Whether to average loss by #layers in each discriminator.
+    include_final_outputs: false # Whether to include final outputs in feat match loss calculation.

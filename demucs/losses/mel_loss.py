@@ -159,6 +159,9 @@ class MelSpectrogramLoss(torch.nn.Module):
             Tensor: Mel-spectrogram loss value.
 
         """
+        if len(y_hat.shape) > 2:
+            y_hat = y_hat.reshape(-1, y_hat.size(-1))  # (B, C, T) -> (B x C, T)
+            y = y.reshape(-1, y.size(-1))  # (B, C, T) -> (B x C, T)
         mel_hat = self.mel_spectrogram(y_hat)
         mel = self.mel_spectrogram(y)
         mel_loss = F.l1_loss(mel_hat, mel)

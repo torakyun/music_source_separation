@@ -27,6 +27,7 @@ from .wav import get_wav_datasets, get_musdb_wav_datasets
 from . import models
 
 from .losses import DiscriminatorAdversarialLoss
+from .losses import FeatureMatchLoss
 from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
 from .losses import MultiResolutionSTFTLoss
@@ -219,16 +220,18 @@ def main(cfg):
     if cfg.loss.mse["lambda"]:
         criterion["mse"] = nn.MSELoss()
     if cfg.loss.stft["lambda"]:
-        criterion["stft"] = MultiResolutionSTFTLoss().to(device)
+        criterion["stft"] = MultiResolutionSTFTLoss(
+            **cfg.loss.stft.params).to(device)
+    if cfg.loss.mel["lambda"]:
+        criterion["mel"] = MelSpectrogramLoss(**cfg.loss.mel.params).to(device)
     if cfg.loss.adversarial["lambda"]:
         criterion["gen_adv"] = GeneratorAdversarialLoss(
-            # keep compatibility
-            **cfg.loss.adversarial.get("generator_params", {})
-        ).to(device)
+            **cfg.loss.adversarial.generator_params).to(device)
         criterion["dis_adv"] = DiscriminatorAdversarialLoss(
-            # keep compatibility
-            **cfg.loss.adversarial.get("discriminator_params", {})
-        ).to(device)
+            **cfg.loss.adversarial.discriminator_params).to(device)
+    if cfg.loss.feat_match["lambda"]:
+        criterion["feat_match"] = FeatureMatchLoss(
+            **cfg.loss.feat_match.params).to(device)
     assert criterion
     print(criterion)
 

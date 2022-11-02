@@ -335,6 +335,15 @@ class Trainer(object):
                             sc_loss + mag_loss)
                         del sc_loss, mag_loss
 
+                    # mel spectrogram loss
+                    if self.config.loss.mel["lambda"]:
+                        mel_loss = self.criterion["mel"](
+                            estimates, sources[start::self.config.batch_divide])
+                        mel_loss /= self.config.batch_divide
+                        self.total_train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
+                        gen_loss += self.config.loss.mel["lambda"] * mel_loss
+                        del mel_loss
+
                     self.total_train_loss["train/gen_loss"] += gen_loss.item()
 
                     # adversarial loss
@@ -348,6 +357,16 @@ class Trainer(object):
                         self.total_train_loss["train/adversarial_loss"] += adv_loss.item()
                         gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
                         del adv_loss
+
+                        # feature matching loss
+                        if self.config.loss.feat_match["lambda"]:
+                            p = self.model["discriminator"](
+                                sources[start::self.config.batch_divide])
+                            fm_loss = self.criterion["feat_match"](p_, p)
+                            fm_loss /= self.config.batch_divide
+                            self.total_train_loss["train/feature_matching_loss"] += fm_loss.item()
+                            gen_loss += self.config.loss.feat_match["lambda"] * fm_loss
+                            del p, fm_loss
 
                         del p_
 
@@ -446,24 +465,32 @@ class Trainer(object):
             # l1 loss
             if self.config.loss.l1["lambda"]:
                 l1_loss = self.criterion["l1"](estimates, sources).item()
-                gen_loss += self.config.loss.l1["lambda"] * l1_loss
                 self.total_valid_loss["valid/l1_loss"] += l1_loss
+                gen_loss += self.config.loss.l1["lambda"] * l1_loss
 
             # multi-resolution sfft loss
             if self.config.loss.stft["lambda"]:
-                toral_sc_loss, total_mag_loss = 0, 0
+                total_sc_loss, total_mag_loss = 0, 0
                 for index in range(sources.size(0)):
                     sc_loss, mag_loss = self.criterion["stft"](
                         estimates[index], sources[index])
-                    toral_sc_loss += sc_loss.item()
+                    total_sc_loss += sc_loss.item()
                     total_mag_loss += mag_loss.item()
                     del sc_loss, mag_loss
-                toral_sc_loss /= sources.size(0)
-                total_mag_loss /= sources.size(0)
+                self.total_valid_loss["valid/spectral_convergence_loss"] += total_sc_loss / index + 1
+                self.total_valid_loss["valid/log_stft_magnitude_loss"] += total_mag_loss / index + 1
                 gen_loss += self.config.loss.stft["lambda"] * \
-                    (toral_sc_loss + total_mag_loss)
-                self.total_valid_loss["valid/spectral_convergence_loss"] += toral_sc_loss
-                self.total_valid_loss["valid/log_stft_magnitude_loss"] += total_mag_loss
+                    ((total_sc_loss + total_mag_loss) / index + 1)
+
+            # mel spectrogram loss
+            if self.config.loss.mel["lambda"]:
+                total_mel_loss = 0
+                for index in range(sources.size(0)):
+                    total_mel_loss += self.criterion["mel"](
+                        estimates[index], sources[index]).item()
+                self.total_valid_loss["valid/mel_spectrogram_loss"] += total_mel_loss / index + 1
+                gen_loss += self.config.loss.mel["lambda"] * \
+                    (total_mel_loss / index + 1)
 
             self.total_valid_loss["valid/gen_loss"] += gen_loss
 

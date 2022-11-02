@@ -15,12 +15,14 @@ class FeatureMatchLoss(torch.nn.Module):
     def __init__(
         self,
         average_by_layers=True,
+        average_by_scales=True,
         average_by_discriminators=True,
         include_final_outputs=False,
     ):
         """Initialize FeatureMatchLoss module."""
         super().__init__()
         self.average_by_layers = average_by_layers
+        self.average_by_scales = average_by_scales
         self.average_by_discriminators = average_by_discriminators
         self.include_final_outputs = include_final_outputs
 
@@ -28,9 +30,9 @@ class FeatureMatchLoss(torch.nn.Module):
         """Calcualate feature matching loss.
 
         Args:
-            feats_hat (list): List of list of discriminator outputs
+            feats_hat (list): List of list of list of discriminator outputs
                 calcuated from generater outputs.
-            feats (list): List of list of discriminator outputs
+            feats (list): List of list of list of discriminator outputs
                 calcuated from groundtruth.
 
         Returns:
@@ -39,16 +41,20 @@ class FeatureMatchLoss(torch.nn.Module):
         """
         feat_match_loss = 0.0
         for i, (feats_hat_, feats_) in enumerate(zip(feats_hat, feats)):
-            feat_match_loss_ = 0.0
-            if not self.include_final_outputs:
-                feats_hat_ = feats_hat_[:-1]
-                feats_ = feats_[:-1]
-            for j, (feat_hat_, feat_) in enumerate(zip(feats_hat_, feats_)):
-                feat_match_loss_ += F.l1_loss(feat_hat_, feat_.detach())
-            if self.average_by_layers:
-                feat_match_loss_ /= j + 1
-            feat_match_loss += feat_match_loss_
+            for j, (feat_hat, feat) in enumerate(zip(feats_hat_, feats_)):
+                if not self.include_final_outputs:
+                    feat_hat = feat_hat[:-1]
+                    feat = feat[:-1]
+                for k, (feat_hat_, feat_) in enumerate(zip(feat_hat, feat)):
+                    feat_match_loss += F.l1_loss(feat_hat_, feat_.detach())
+        divide = 1
         if self.average_by_discriminators:
-            feat_match_loss /= i + 1
+            divide *= i + 1
+        if self.average_by_scales:
+            divide *= j + 1
+        if self.average_by_layers:
+            divide *= k + 1
+        if divide != 1:
+            feat_match_loss /= divide
 
         return feat_match_loss
