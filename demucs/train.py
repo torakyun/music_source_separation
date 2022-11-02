@@ -382,6 +382,11 @@ class Trainer(object):
 
                 # update generator
                 g_grad_norm = 0
+                if self.config.model.generator.grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model["generator"].parameters(),
+                        self.config.model.generator.grad_norm,
+                    )
                 for p in self.model["generator"].parameters():
                     if p.grad is not None:
                         g_grad_norm += p.grad.data.norm()**2
@@ -416,7 +421,12 @@ class Trainer(object):
 
                     # update discriminator
                     d_grad_norm = 0
-                    for p in self.model["generator"].parameters():
+                    if self.config.model.discriminator.grad_norm > 0:
+                        torch.nn.utils.clip_grad_norm_(
+                            self.model["discriminator"].parameters(),
+                            self.config.model.discriminator.grad_norm,
+                        )
+                    for p in self.model["discriminator"].parameters():
                         if p.grad is not None:
                             d_grad_norm += p.grad.data.norm()**2
                     d_grad_norm = d_grad_norm**0.5
