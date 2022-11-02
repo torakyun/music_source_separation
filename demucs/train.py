@@ -31,7 +31,7 @@ from .utils import human_seconds, apply_model, save_model, average_metric, cente
 
 
 ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half",
-                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "dataset", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.params"]
+                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "dataset", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
 
 
 class Trainer(object):
