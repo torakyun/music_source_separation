@@ -585,8 +585,8 @@ class Trainer(object):
                 for name, estimate in zip(model.sources, estimates):
                     wavfile.write(
                         str(track_folder / (name + ".wav")), 44100, estimate)
-                    mlflow.log_artifact(
-                        str(track_folder / (name + ".wav")), "wav")
+                    # mlflow.log_artifact(
+                    #     str(track_folder / (name + ".wav")), "wav")
                     # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
             # cal SDR
             win = int(1. * model.samplerate)
