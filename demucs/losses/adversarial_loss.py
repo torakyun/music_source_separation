@@ -14,11 +14,13 @@ class GeneratorAdversarialLoss(torch.nn.Module):
 
     def __init__(
         self,
+        average_by_scales=True,
         average_by_discriminators=True,
         loss_type="mse",
     ):
         """Initialize GeneratorAversarialLoss module."""
         super().__init__()
+        self.average_by_scales = average_by_scales
         self.average_by_discriminators = average_by_discriminators
         assert loss_type in ["mse", "hinge"], f"{loss_type} is not supported."
         if loss_type == "mse":
@@ -30,24 +32,30 @@ class GeneratorAdversarialLoss(torch.nn.Module):
         """Calcualate generator adversarial loss.
 
         Args:
-            outputs (Tensor or list): Discriminator outputs or list of
-                discriminator outputs.
+            outputs (List): List of discriminator outputs.
 
         Returns:
             Tensor: Generator adversarial loss value.
 
         """
-        if isinstance(outputs, (tuple, list)):
-            adv_loss = 0.0
-            for i, outputs_ in enumerate(outputs):
-                if isinstance(outputs_, (tuple, list)):
-                    # NOTE(kan-bayashi): case including feature maps
-                    outputs_ = outputs_[-1]
+        adv_loss = 0.0
+        j = 0
+        for i, outputs_ in enumerate(outputs):
+            if isinstance(outputs_, (tuple, list)):
+                for j, output in enumerate(outputs_):
+                    if isinstance(output, (tuple, list)):
+                        # NOTE(kan-bayashi): case including feature maps
+                        output = output[-1]
+                    adv_loss += self.criterion(output)
+            else:
                 adv_loss += self.criterion(outputs_)
-            if self.average_by_discriminators:
-                adv_loss /= i + 1
-        else:
-            adv_loss = self.criterion(outputs)
+        divide = 1
+        if self.average_by_discriminators:
+            divide *= (i + 1)
+        if self.average_by_scales:
+            divide *= (j + 1)
+        if divide != 1:
+            adv_loss /= divide
 
         return adv_loss
 
@@ -63,11 +71,13 @@ class DiscriminatorAdversarialLoss(torch.nn.Module):
 
     def __init__(
         self,
+        average_by_scales=True,
         average_by_discriminators=True,
         loss_type="mse",
     ):
         """Initialize DiscriminatorAversarialLoss module."""
         super().__init__()
+        self.average_by_scales = average_by_scales
         self.average_by_discriminators = average_by_discriminators
         assert loss_type in ["mse", "hinge"], f"{loss_type} is not supported."
         if loss_type == "mse":
@@ -81,32 +91,37 @@ class DiscriminatorAdversarialLoss(torch.nn.Module):
         """Calcualate discriminator adversarial loss.
 
         Args:
-            outputs_hat (Tensor or list): Discriminator outputs or list of
-                discriminator outputs calculated from generator outputs.
-            outputs (Tensor or list): Discriminator outputs or list of
-                discriminator outputs calculated from groundtruth.
+            outputs_hat (List): List of discriminator outputs calculated from generator outputs.
+            outputs (List): List of discriminator outputs calculated from groundtruth.
 
         Returns:
             Tensor: Discriminator real loss value.
             Tensor: Discriminator fake loss value.
 
         """
-        if isinstance(outputs, (tuple, list)):
-            real_loss = 0.0
-            fake_loss = 0.0
-            for i, (outputs_hat_, outputs_) in enumerate(zip(outputs_hat, outputs)):
-                if isinstance(outputs_hat_, (tuple, list)):
-                    # NOTE(kan-bayashi): case including feature maps
-                    outputs_hat_ = outputs_hat_[-1]
-                    outputs_ = outputs_[-1]
-                real_loss += self.real_criterion(outputs_)
-                fake_loss += self.fake_criterion(outputs_hat_)
-            if self.average_by_discriminators:
-                fake_loss /= i + 1
-                real_loss /= i + 1
-        else:
-            real_loss = self.real_criterion(outputs)
-            fake_loss = self.fake_criterion(outputs_hat)
+        real_loss = 0.0
+        fake_loss = 0.0
+        j = 0
+        for i, (outputs_hat_, outputs_) in enumerate(zip(outputs_hat, outputs)):
+            if isinstance(outputs_, (tuple, list)):
+                for j, (output_hat, output) in enumerate(zip(outputs_hat_, outputs_)):
+                    if isinstance(output_hat, (tuple, list)):
+                        # NOTE(kan-bayashi): case including feature maps
+                        output_hat = output_hat[-1]
+                        output = output[-1]
+                    real_loss += self.real_criterion(output)
+                    fake_loss += self.fake_criterion(output_hat)
+            else:
+                real_loss = self.real_criterion(outputs_)
+                fake_loss = self.fake_criterion(outputs_hat_)
+        divide = 1
+        if self.average_by_discriminators:
+            divide *= (i + 1)
+        if self.average_by_scales:
+            divide *= (j + 1)
+        if divide != 1:
+            fake_loss /= divide
+            real_loss /= divide
 
         return real_loss, fake_loss
 

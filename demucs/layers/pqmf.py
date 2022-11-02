@@ -40,7 +40,8 @@ def design_prototype_filter(taps=62, cutoff_ratio=0.142, beta=9.0):
         h_i = np.sin(omega_c * (np.arange(taps + 1) - 0.5 * taps)) / (
             np.pi * (np.arange(taps + 1) - 0.5 * taps)
         )
-    h_i[taps // 2] = np.cos(0) * cutoff_ratio  # fix nan due to indeterminate form
+    # fix nan due to indeterminate form
+    h_i[taps // 2] = np.cos(0) * cutoff_ratio
 
     # apply kaiser window
     w = kaiser(taps + 1, beta)
@@ -59,7 +60,7 @@ class PQMF(torch.nn.Module):
 
     """
 
-    def __init__(self, subbands=4, taps=62, cutoff_ratio=0.142, beta=9.0):
+    def __init__(self, subbands=4, taps=62, cutoff_ratio=0.142, beta=9.0, in_channels=1):
         """Initilize PQMF module.
 
         The cutoff_ratio and beta parameters are optimized for #subbands = 4.
@@ -70,48 +71,54 @@ class PQMF(torch.nn.Module):
             taps (int): The number of filter taps.
             cutoff_ratio (float): Cut-off frequency ratio.
             beta (float): Beta coefficient for kaiser window.
+            in_channels (int): The number of input channels.
 
         """
         super(PQMF, self).__init__()
 
         # build analysis & synthesis filter coefficients
         h_proto = design_prototype_filter(taps, cutoff_ratio, beta)
-        h_analysis = np.zeros((subbands, len(h_proto)))
-        h_synthesis = np.zeros((subbands, len(h_proto)))
-        for k in range(subbands):
-            h_analysis[k] = (
-                2
-                * h_proto
-                * np.cos(
-                    (2 * k + 1)
-                    * (np.pi / (2 * subbands))
-                    * (np.arange(taps + 1) - (taps / 2))
-                    + (-1) ** k * np.pi / 4
+        h_analysis = np.zeros(
+            (subbands * in_channels, in_channels, len(h_proto)))
+        h_synthesis = np.zeros(
+            (in_channels, subbands * in_channels, len(h_proto)))
+        for j in range(in_channels):
+            for k in range(subbands):
+                h_analysis[j*subbands+k, j] = (
+                    2
+                    * h_proto
+                    * np.cos(
+                        (2 * k + 1)
+                        * (np.pi / (2 * subbands))
+                        * (np.arange(taps + 1) - (taps / 2))
+                        + (-1) ** k * np.pi / 4
+                    )
                 )
-            )
-            h_synthesis[k] = (
-                2
-                * h_proto
-                * np.cos(
-                    (2 * k + 1)
-                    * (np.pi / (2 * subbands))
-                    * (np.arange(taps + 1) - (taps / 2))
-                    - (-1) ** k * np.pi / 4
+                h_synthesis[j, j*subbands+k] = (
+                    2
+                    * h_proto
+                    * np.cos(
+                        (2 * k + 1)
+                        * (np.pi / (2 * subbands))
+                        * (np.arange(taps + 1) - (taps / 2))
+                        - (-1) ** k * np.pi / 4
+                    )
                 )
-            )
 
         # convert to tensor
-        analysis_filter = torch.from_numpy(h_analysis).float().unsqueeze(1)
-        synthesis_filter = torch.from_numpy(h_synthesis).float().unsqueeze(0)
+        analysis_filter = torch.from_numpy(h_analysis).float()
+        synthesis_filter = torch.from_numpy(h_synthesis).float()
 
         # register coefficients as beffer
         self.register_buffer("analysis_filter", analysis_filter)
         self.register_buffer("synthesis_filter", synthesis_filter)
 
         # filter for downsampling & upsampling
-        updown_filter = torch.zeros((subbands, subbands, subbands)).float()
-        for k in range(subbands):
-            updown_filter[k, k, 0] = 1.0
+        updown_filter = torch.zeros(
+            (subbands * in_channels, subbands * in_channels, subbands)).float()
+        for j in range(in_channels):
+            for k in range(subbands):
+                updown_filter[j*subbands+k, j*subbands+k, 0] = 1.0
         self.register_buffer("updown_filter", updown_filter)
         self.subbands = subbands
 

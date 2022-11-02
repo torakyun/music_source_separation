@@ -1,0 +1,22 @@
+name: "StyleMelGANDiscriminator"
+params:
+  repeats: 4
+  window_sizes: [512, 1024, 2048, 4096]
+  pqmf_params:
+    - [1, None, None, None]
+    - [2, 62, 0.26700, 9.0]
+    - [4, 62, 0.14200, 9.0]
+    - [8, 62, 0.07949, 9.0]
+  discriminator_params:
+    out_channels: 1
+    kernel_sizes: [5, 3]
+    channels: 16
+    max_downsample_channels: 512
+    bias: True
+    downsample_scales: [4, 4, 4, 1]
+    nonlinear_activation: "LeakyReLU"
+    nonlinear_activation_params:
+      negative_slope: 0.2
+  use_weight_norm: True
+separate: "full"
+grad_norm: -1

@@ -35,15 +35,27 @@ class Discriminators(torch.nn.Module):
         self.channels = channels
         self.separate = separate
         self.discriminators = torch.nn.ModuleList()
+
+        # set in_channels
         if not separate:
-            params["in_channels"] = sources * channels
+            in_channels = sources * channels
+        elif separate == "sources":
+            in_channels = channels
+        elif separate == "full":
+            in_channels = 1
+        if name == "HiFiGANMultiScaleMultiPeriodDiscriminator":
+            params["scale_discriminator_params"]["in_channels"] = in_channels
+            params["period_discriminator_params"]["in_channels"] = in_channels
+        else:
+            params["in_channels"] = in_channels
+
+        # get discriminators
+        if not separate:
             self.discriminators.append(globals()[name](**params))
         elif separate == "sources":
-            params["in_channels"] = channels
             for _ in range(sources):
                 self.discriminators.append(globals()[name](**params))
         elif separate == "full":
-            params["in_channels"] = 1
             for _ in range(sources):
                 self.discriminators.append(globals()[name](**params))
 
@@ -60,8 +72,8 @@ class Discriminators(torch.nn.Module):
         output = []
         for i, f in enumerate(self.discriminators):
             if not self.separate:
-                batch, sources, channels, time = x.size()
-                output.append(f(x.view(batch, sources * channels, time)))
+                sources, channels, time = x.size(-3), x.size(-2), x.size(-1)
+                output.append(f(x.view(-1, sources * channels, time)))
             elif self.separate == "sources":
                 output.append(f(x[:, i, ...]))
             elif self.separate == "full":

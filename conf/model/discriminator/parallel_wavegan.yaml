@@ -12,3 +12,4 @@ params:
   nonlinear_activation_params:      # Nonlinear function parameters
       negative_slope: 0.2           # Alpha in LeakyReLU.
 separate: "full"
+grad_norm: -1

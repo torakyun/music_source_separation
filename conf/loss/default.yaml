@@ -16,3 +16,12 @@ stft:
 # Adversarial Loss
 adversarial:
   lambda: 0
+  generator_params:
+    average_by_discriminators: true # Whether to average loss by #discriminators.
+    average_by_scales: false # Whether to average loss by #scales.
+    loss_type: "mse"
+  discriminator_params:
+    average_by_discriminators: true # Whether to average loss by #discriminators.
+    average_by_scales: false # Whether to average loss by #scales.
+    loss_type: "mse"
+  train_start_epoch: -1 # 30

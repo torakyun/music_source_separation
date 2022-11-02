@@ -1,0 +1,21 @@
+name: "MelGANMultiScaleDiscriminator"
+params:
+  in_channels: 1 # Number of input channels.
+  out_channels: 1 # Number of output channels.
+  scales: 3 # Number of multi-scales.
+  downsample_pooling: "AvgPool1d" # Pooling type for the input downsampling.
+  downsample_pooling_params: # Parameters of the above pooling function.
+    kernel_size: 4
+    stride: 2
+    padding: 1
+    count_include_pad: False
+  kernel_sizes: [5, 3] # List of kernel size.
+  channels: 16 # Number of channels of the initial conv layer.
+  max_downsample_channels: 1024 # Maximum number of channels of downsampling layers.
+  downsample_scales: [8, 4, 4, 4] # List of downsampling scales.
+  nonlinear_activation: "LeakyReLU" # Nonlinear activation function.
+  nonlinear_activation_params: # Parameters of nonlinear activation function.
+    negative_slope: 0.2
+  use_weight_norm: True
+separate: "full"
+grad_norm: -1

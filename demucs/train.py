@@ -335,17 +335,22 @@ class Trainer(object):
                             sc_loss + mag_loss)
                         del sc_loss, mag_loss
 
+                    self.total_train_loss["train/gen_loss"] += gen_loss.item()
+
                     # adversarial loss
                     if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                        # no need to track gradients
                         self.set_requires_grad(
                             self.model["discriminator"], False)
                         p_ = self.model["discriminator"](estimates)
                         adv_loss = self.criterion["gen_adv"](p_)
+                        adv_loss /= self.config.batch_divide
                         self.total_train_loss["train/adversarial_loss"] += adv_loss.item()
                         gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
-                        del p_, adv_loss
+                        del adv_loss
 
-                    self.total_train_loss["train/gen_loss"] += gen_loss.item()
+                        del p_
+
                     gen_loss.backward()
                     del gen_loss, estimates
 
@@ -374,9 +379,6 @@ class Trainer(object):
                             estimates = self.model["generator"](
                                 mix[start::self.config.batch_divide])
 
-                        # initialize
-                        dis_loss = 0.0
-
                         # discriminator loss
                         self.set_requires_grad(
                             self.model["discriminator"], True)
@@ -388,12 +390,10 @@ class Trainer(object):
                         fake_loss /= self.config.batch_divide
                         self.total_train_loss["train/real_loss"] += real_loss.item()
                         self.total_train_loss["train/fake_loss"] += fake_loss.item()
-                        dis_loss += real_loss + fake_loss
-                        del real_loss, fake_loss
-
-                        self.total_train_loss["train/discriminator_loss"] += dis_loss.item()
-                        dis_loss.backward()
-                        del dis_loss, estimates
+                        self.total_train_loss["train/discriminator_loss"] = self.total_train_loss["train/real_loss"] + \
+                            self.total_train_loss["train/fake_loss"]
+                        (real_loss + fake_loss).backward()
+                        del real_loss, fake_loss, estimates
 
                     # update discriminator
                     d_grad_norm = 0
@@ -466,6 +466,39 @@ class Trainer(object):
                 self.total_valid_loss["valid/log_stft_magnitude_loss"] += total_mag_loss
 
             self.total_valid_loss["valid/gen_loss"] += gen_loss
+
+            # adversarial loss
+            if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                total_adversarial_loss, total_real_loss, total_fake_loss, total_fm_loss = 0, 0, 0, 0
+                divide = 16
+                print(estimates[..., 0::divide].size())
+                for index in range(divide):
+                    p_ = self.model["discriminator"](
+                        estimates[..., index::divide])
+                    p = self.model["discriminator"](
+                        sources[..., index::divide])
+                    total_adversarial_loss += self.criterion["gen_adv"](
+                        p_).item()
+                    real_loss, fake_loss = self.criterion["dis_adv"](p_, p)
+                    total_real_loss += real_loss.item()
+                    total_fake_loss += fake_loss.item()
+                    del real_loss, fake_loss
+
+                    # feature matching loss
+                    if self.config.loss.feat_match["lambda"]:
+                        total_fm_loss += self.criterion["feat_match"](
+                            p_, p).item()
+
+                    del p_, p
+
+                self.total_valid_loss["valid/adversarial_loss"] += total_adversarial_loss / index + 1
+                self.total_valid_loss["valid/real_loss"] += total_real_loss / index + 1
+                self.total_valid_loss["valid/fake_loss"] += total_fake_loss / index + 1
+                self.total_valid_loss["valid/discriminator_loss"] += (
+                    total_real_loss + total_fake_loss) / index + 1
+                if self.config.loss.feat_match["lambda"]:
+                    self.total_valid_loss["valid/feature_matching_loss"] += total_fm_loss / index + 1
+
             del estimates, streams, sources
 
         for k, v in self.total_valid_loss.items():

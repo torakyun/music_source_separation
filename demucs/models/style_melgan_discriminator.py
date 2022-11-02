@@ -12,11 +12,13 @@ import torch
 from ..layers import PQMF
 from .melgan_discriminator import MelGANDiscriminator as BaseDiscriminator
 
+
 class StyleMelGANDiscriminator(torch.nn.Module):
     """Style MelGAN disciminator module."""
 
     def __init__(
         self,
+        in_channels=8,
         repeats=2,
         window_sizes=[512, 1024, 2048, 4096],
         pqmf_params=[
@@ -62,11 +64,11 @@ class StyleMelGANDiscriminator(torch.nn.Module):
         self.discriminators = torch.nn.ModuleList()
         for pqmf_param in pqmf_params:
             d_params = copy.deepcopy(discriminator_params)
-            d_params["in_channels"] = pqmf_param[0]
+            d_params["in_channels"] = pqmf_param[0] * in_channels
             if pqmf_param[0] == 1:
                 self.pqmfs += [torch.nn.Identity()]
             else:
-                self.pqmfs += [PQMF(*pqmf_param)]
+                self.pqmfs += [PQMF(*pqmf_param, in_channels)]
             self.discriminators += [BaseDiscriminator(**d_params)]
 
         # apply weight norm
@@ -100,7 +102,7 @@ class StyleMelGANDiscriminator(torch.nn.Module):
         ):
             # NOTE(kan-bayashi): Is it ok to apply different window for real and fake samples?
             start_idx = np.random.randint(x.size(-1) - ws)
-            x_ = x[:, :, start_idx : start_idx + ws]
+            x_ = x[:, :, start_idx: start_idx + ws]
             if idx == 0:
                 x_ = pqmf(x_)
             else:
