@@ -293,8 +293,8 @@ class Trainer(object):
             # reset
             self.total_train_loss = defaultdict(float)
             for idx, sources in enumerate(tq):
-                if idx > 0:
-                    break
+                # if idx > 0:
+                #     break
                 if len(sources) < self.config.batch_size // self.config.device.world_size:
                     # skip uncomplete batch for augment.Remix to work properly
                     continue
