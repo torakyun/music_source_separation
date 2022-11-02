@@ -229,7 +229,7 @@ class Trainer(object):
         else:
             self.model["generator"].load_state_dict(
                 state_dict["model"]["generator"])
-        if self.config.loss.adversarial["lambda"]:
+        if self.config.loss.adversarial["lambda"] and "discriminator" in state_dict["model"].keys():
             if self.config.device.world_size > 1:
                 self.model["discriminator"].module.load_state_dict(
                     state_dict["model"]["discriminator"])
@@ -242,7 +242,7 @@ class Trainer(object):
             self.best_state = state_dict["best_state"]
             self.optimizer["generator"].load_state_dict(
                 state_dict["optimizer"]["generator"])
-            if self.config.loss.adversarial["lambda"]:
+            if self.config.loss.adversarial["lambda"] and "discriminator" in state_dict["optimizer"].keys():
                 self.optimizer["discriminator"].load_state_dict(
                     state_dict["optimizer"]["discriminator"])
 
