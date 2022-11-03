@@ -18,7 +18,9 @@ batch_size: 64
 batch_divide: 1
 lr: 0.0003
 split_valid: false
-pretrained: 
+adversarial_valid_length: 15000000
+# adversarial_valid_divide: 1
+pretrained:
 
 # Other options
 show: false # Show model architecture, size and exit
