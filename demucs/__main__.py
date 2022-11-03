@@ -36,8 +36,28 @@ from omegaconf import OmegaConf
 import hydra
 
 
-ignore_args = ["restart", "show", "save", "save_model", "save_state", "device.workers",
-               "dataset.remix_group_size", "model.generator.params.depth", "model.generator.params.lstm_layers"]
+def get_name():
+    args = sys.argv[1:]
+    show_names = {
+        "pretrained": "pretrained",
+        "epochs": "epochs",
+        "loss.l1.lambda": "l1",
+        "loss.stft.lambda": "stft",
+        "loss.mel.lambda": "mel",
+        "loss.adversarial.lambda": "adversarial",
+        "loss.feat_match.lambda": "feat_match",
+        "model/discriminator": "discriminator",
+        "model.discriminator.separate": "separate",
+    }
+    params = {}
+    for arg in args:
+        name, value = arg.split("=", 1)
+        if name[0] == "+":
+            name = name[1:]
+        if name in show_names.keys():
+            params[show_names[name]] = \
+                value if name != "pretrained" else f"({value})"
+    return "_".join([f"{name}-{value}" for name, value in params.items()]) if params else "default"
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
@@ -46,11 +66,7 @@ def main(cfg):
     try:
         name = cfg.name
     except:
-        import re
-        args = sys.argv[1:]
-        name = [arg for arg in args if not arg == "-m" and not arg == "--multirun" and re.split(
-            "[+=]", arg)[-2] not in ignore_args] if args else ["default"]
-        name = "_".join(name)
+        name = get_name()
         cfg.name = name
     print(f"Experiment {name}")
 

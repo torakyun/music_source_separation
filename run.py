@@ -16,7 +16,7 @@ import re
 import torch as th
 
 from demucs.utils import free_port
-from demucs.__main__ import ignore_args
+from demucs.__main__ import get_name
 
 
 def main():
@@ -24,9 +24,7 @@ def main():
     gpus = max(th.cuda.device_count(), 1)
 
     port = free_port()
-    name = [arg for arg in args if not re.split(
-        "[+=]", arg)[-2] in ignore_args] if args else ["default"]
-    name = "_".join(name) if args else "default"
+    name = get_name()
     args += [f"+name=\"{name}\"", f"device.world_size={gpus}",
              f"+device.master=127.0.0.1:{port}"]
     tasks = []
