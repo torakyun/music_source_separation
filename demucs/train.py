@@ -618,7 +618,7 @@ class Trainer(object):
 
     def _check_save_interval(self):
         # save to file
-        log_folder = self.outdir / self.config.outdir.logs
+        log_folder = self.outdir / "logs"
         metrics_path = log_folder / f"{self.config.name}.json"
         json.dump(self.metrics, open(metrics_path, "w"))
         checkpoint_folder = self.outdir / self.config.outdir.checkpoints
