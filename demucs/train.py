@@ -13,21 +13,22 @@ import time
 import musdb
 import museval
 from scipy.io import wavfile
-import numpy as np
+import librosa
+import matplotlib.pyplot as plt
 
+import numpy as np
 from collections import defaultdict
 
 # from tensorboardX import SummaryWriter
 import mlflow
 from omegaconf import DictConfig, ListConfig
 
+from .audio import convert_audio
+from .utils import human_seconds, apply_model, save_model, average_metric, center_trim
+
 import torch
 from torch import distributed
 from tqdm import tqdm
-
-# from .test import evaluate
-from .audio import convert_audio
-from .utils import human_seconds, apply_model, save_model, average_metric, center_trim
 
 
 ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half",
