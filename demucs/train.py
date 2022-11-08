@@ -145,9 +145,9 @@ class Trainer(object):
                 "compressed_model_size": cms,
             })
             if self.config.device.rank == 0:
-                self._check_log_interval(epoch)
+                self._check_eval_interval(epoch)
                 self._check_save_interval()
-            self._check_eval_interval(epoch)
+                self._check_log_interval(epoch)
 
             # logging
             print(f"Epoch {epoch:03d}: "
