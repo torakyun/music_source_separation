@@ -277,6 +277,112 @@ class Trainer(object):
             # print(parent_name, "=", element)
             mlflow.log_param(parent_name, element)
 
+    def log_and_save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
+        def log_and_save_spectrogram(title, r, e, d, dir, xmax=None, sources=["drums", "bass", "other", "vocals"], targets=["reference", "estimate", "difference"]):
+            fig = plt.figure(constrained_layout=True, figsize=(20, 15))
+            # fig.suptitle(title, fontsize='xx-large')
+            axes = fig.subplots(
+                nrows=len(sources), ncols=len(targets), sharex=False)
+            for i, source in enumerate(sources):
+                for j, target in enumerate(targets):
+                    # if i == 0:
+                    #     axes[i, j].text(0.5, 1, target)
+                    axes[i, j].set_xlabel("frame")
+                    axes[i, j].set_ylabel("freq_bin")
+                    if j == 0:
+                        # axes[i, j].text(-0.1, 0.5, source)
+                        im = axes[i, j].imshow(
+                            r[i].cpu(), origin="lower", aspect="auto")
+                    elif j == 1:
+                        im = axes[i, j].imshow(
+                            e[i].cpu(), origin="lower", aspect="auto")
+                    elif j == 2:
+                        im = axes[i, j].imshow(
+                            d[i].cpu(), origin="lower", aspect="auto")
+                if xmax:
+                    axes[i, j].set_xlim((0, xmax))
+                fig.colorbar(im, ax=axes[i, j])
+            title = title.replace(" ", "_")
+            path = Path(dir) / f"{title}.png"
+            fig.savefig(path)
+            mlflow.log_figure(fig, f"figure/{title}.png")
+
+        # Spectrogram params
+        stft_params = {
+            "n_fft": 2048,
+            "hop_length": 240,
+            "win_length": 1200,
+            "center": True,
+            "normalized": False,
+            "onesided": True,
+        } if not stft_params else stft_params
+        if is_pytorch_17plus:
+            stft_params["return_complex"] = False
+        mel_params = {
+            "sr": 44100,
+            "n_fft": stft_params["n_fft"],
+            "n_mels": 80,
+            "fmin": 0,
+            "fmax": 22050,
+        } if not mel_params else mel_params
+        if window is not None:
+            window_func = getattr(torch, f"{window}_window")
+            stft_params["window"] = window_func(
+                stft_params["win_length"], dtype=references.dtype, device=references.device)
+        else:
+            stft_params["window"] = None
+
+        # calculate STFT
+        references_stft = torch.stft(references, **stft_params)
+        estimates_stft = torch.stft(estimates, **stft_params)
+        del references, estimates
+        differences_stft = references_stft - estimates_stft
+        differences_stft = torch.sqrt(torch.clamp(
+            differences_stft[..., 0]**2 + differences_stft[..., 1]**2, min=1e-7))
+        references_mag = torch.sqrt(torch.clamp(
+            references_stft[..., 0]**2 + references_stft[..., 1]**2, min=1e-7))
+        estimates_mag = torch.sqrt(torch.clamp(
+            estimates_stft[..., 0]**2 + estimates_stft[..., 1]**2, min=1e-7))
+        del references_stft, estimates_stft
+
+        # STFT spectrogram
+        log_and_save_spectrogram(
+            "STFT", references_mag, estimates_mag, differences_stft, dir)
+        del differences_stft
+
+        # Magnitude spectrogram
+        differences_mag = (references_mag - estimates_mag).abs()
+        log_and_save_spectrogram(
+            "Magnitude Spectrogram", references_mag, estimates_mag, differences_mag, dir)
+        del differences_mag
+
+        # Log-scale Magnitude spectrogram
+        references_log_mag = torch.log(references_mag)
+        estimates_log_mag = torch.log(estimates_mag)
+        differences_log_mag = (references_log_mag - estimates_log_mag).abs()
+        log_and_save_spectrogram(
+            "Log-Scale Magnitude Spectrogram", references_log_mag, estimates_log_mag, differences_log_mag, dir)
+        del references_log_mag, estimates_log_mag, differences_log_mag
+
+        # Mel spectrogram
+        melmat = librosa.filters.mel(**mel_params)
+        melmat = torch.from_numpy(melmat).to(references_mag.device).double()
+        references_mel = torch.clamp(torch.matmul(
+            melmat, references_mag), min=1e-7)
+        estimates_mel = torch.clamp(torch.matmul(
+            melmat, estimates_mag), min=1e-7)
+        differences_mel = (references_mel - estimates_mel).abs()
+        log_and_save_spectrogram(
+            "Mel Spectrogram", references_mel, estimates_mel, differences_mel, dir)
+        del melmat, differences_mel
+
+        # Log-scale Mel spectrogram
+        references_log_mel = torch.log(references_mel)
+        estimates_log_mel = torch.log(estimates_mel)
+        differences_log_mel = (references_log_mel - estimates_log_mel).abs()
+        log_and_save_spectrogram(
+            "Log-Scale Mel Spectrogram", references_log_mel, estimates_log_mel, differences_log_mel, dir)
+
     def _train_epoch(self, epoch):
         """Train model one epoch."""
         if self.config.device.world_size > 1:
