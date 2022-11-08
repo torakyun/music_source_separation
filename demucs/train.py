@@ -29,9 +29,11 @@ from .utils import human_seconds, apply_model, save_model, average_metric, cente
 import torch
 from torch import distributed
 from tqdm import tqdm
+from distutils.version import LooseVersion
+is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
 
 
-ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half",
+ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half", "eval_interval", "eval_second", "eval_epoch_path", "out",
                  "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "dataset", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
 
 
@@ -78,6 +80,7 @@ class Trainer(object):
         # self.writer = SummaryWriter(self.outdir / "tensorboard" / f"{self.config.name}")
         self.train_loss = defaultdict(float)
         self.valid_loss = defaultdict(float)
+        self.eval_loss = defaultdict(float)
 
     def run(self):
         # mlflow setting
@@ -158,29 +161,10 @@ class Trainer(object):
         # evaluate and save best model
         if self.config.device.world_size > 1:
             distributed.barrier()
-            self.model["generator"].module.load_state_dict(self.best_state)
-        else:
-            self.model["generator"].load_state_dict(self.best_state)
-        if self.config.device.eval_cpu:
-            device = "cpu"
-            self.model["generator"].to(device)
-        self.model["generator"].eval()
-        stat = self._eval_epoch()
-        # eval_folder = self.outdir / "evals" / self.config.name
-        # eval_folder.mkdir(exist_ok=True, parents=True)
-        # evaluate(self.model["generator"], self.config.dataset.musdb.path, eval_folder,
-        #          is_wav=self.config.dataset.musdb.is_wav,
-        #          rank=self.config.device.rank,
-        #          world_size=self.config.device.world_size,
-        #          device=self.device,
-        #          save=self.config.save,
-        #          split=self.config.split_valid,
-        #          shifts=self.config.dataset.shifts,
-        #          overlap=self.config.dataset.overlap,
-        #          workers=self.config.device.eval_workers)
-        self.model["generator"].to("cpu")
+        model, stat = self.evaluate()
+        model.to("cpu")
         if self.config.device.rank == 0:
-            save_model(self.model["generator"], self.quantizer, self.config,
+            save_model(model, self.quantizer, self.config,
                        self.outdir / "models" / f"{self.config.name}.th")
 
         mlflow.end_run()
@@ -666,7 +650,87 @@ class Trainer(object):
         return current_loss
 
     @torch.no_grad()
-    def _eval_epoch(self, track_indexes=[], epoch=0):
+    def _eval_epoch(self, epoch=0):
+        # make eval track1
+        if epoch == 0:
+            test_set = musdb.DB(
+                self.config.dataset.musdb.path, subsets=["test"])
+            from_samplerate = 44100
+            track = test_set.tracks[1]
+            mix = torch.from_numpy(track.audio).t().float()
+            ref = mix.mean(dim=0)  # mono mixture
+            mix = (mix - ref.mean()) / ref.std()
+            mix = convert_audio(mix, from_samplerate,
+                                self.config.dataset.samplerate, self.config.dataset.channels)
+            references = torch.stack(
+                [torch.from_numpy(track.targets[name].audio).t() for name in ["drums", "bass", "other", "vocals"]])
+            references = convert_audio(
+                references, from_samplerate, self.config.dataset.samplerate, self.config.dataset.channels)
+            track = {
+                "name": track.name,
+                "mix": mix, "mean": ref.mean(),
+                "std": ref.std(),
+                "targets": references
+            }
+            torch.save(track, self.config.eval_epoch_path)
+        else:
+            track = torch.load(
+                Path(self.config.eval_epoch_path), map_location="cpu")
+
+        """Evaluate model one epoch."""
+        eval_folder = self.outdir / "evals" / self.config.name
+        eval_folder.mkdir(exist_ok=True, parents=True)
+
+        estimates = apply_model(
+            self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"],
+            track["mix"].to(self.device),
+            shifts=self.config.dataset.shifts,
+            split=self.config.split_valid,
+            overlap=self.config.dataset.overlap
+        )
+        estimates = estimates * track["std"] + track["mean"]
+
+        # save spectrogram
+        references = track["targets"].to(self.device)
+        second = self.config.dataset.samplerate * self.config.eval_second
+        self.log_and_save_spectrogram(
+            references.mean(dim=1)[..., :second],
+            estimates.mean(dim=1)[..., :second],
+            eval_folder
+        )
+
+        estimates = estimates.transpose(1, 2).cpu().numpy()
+        references = references.transpose(1, 2).cpu().numpy()
+
+        # save wav
+        track_folder = eval_folder / track["name"]
+        track_folder.mkdir(exist_ok=True, parents=True)
+        for name, estimate in zip(self.config.dataset.sources, estimates):
+            # wavfile.write(
+            #     str(track_folder / (f"{name}_epoch{epoch}.wav")), self.config.dataset.samplerate, estimate)
+            wavfile.write(
+                str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
+            # mlflow.log_artifact(
+            #     str(track_folder / (name + ".wav")), "wav")
+            # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
+
+        # cal SDR
+        win = int(1. * self.config.dataset.samplerate)
+        hop = int(1. * self.config.dataset.samplerate)
+        print("sdr!")
+        sdr, isr, sir, sar = museval.evaluate(
+            references[:, :second, :], estimates[:, :second, :], win=win, hop=hop)
+        print("sdr!")
+        for idx, source in enumerate(self.config.dataset.sources):
+            self.eval_loss[f"eval/sdr_{source}"] = np.nanmedian(
+                sdr[idx].tolist())
+            print(source)
+        self.eval_loss["eval/sdr_all"] = np.array(
+            list(self.eval_loss.values())).mean()
+        json.dump(self.eval_loss, open(eval_folder / "sdr.json", "w"))
+
+    @torch.no_grad()
+    def evaluate(self):
         """Evaluate model one epoch."""
         eval_folder = self.outdir / "evals" / self.config.name
         eval_folder.mkdir(exist_ok=True, parents=True)
@@ -674,11 +738,16 @@ class Trainer(object):
         # we load tracks from the original musdb set
         test_set = musdb.DB(self.config.dataset.musdb.path, subsets=[
                             "test"], is_wav=self.config.dataset.musdb.is_wav)
-        if not track_indexes:
-            track_indexes = list(range(len(test_set)))
+        track_indexes = list(range(len(test_set)))
         src_rate = 44100  # hardcoded for now...
         all_metrics = defaultdict(list)
         model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
+        del self.model
+        model.load_state_dict(self.best_state)
+        if self.config.device.eval_cpu:
+            device = "cpu"
+            model.to(device)
+        model.eval()
         for index in tqdm(range(self.config.device.rank, len(track_indexes), self.config.device.world_size), file=sys.stdout):
             track = test_set.tracks[track_indexes[index]]
 
@@ -687,7 +756,7 @@ class Trainer(object):
             mix = (mix - ref.mean()) / ref.std()
             mix = convert_audio(
                 mix, src_rate, model.samplerate, model.audio_channels)
-            estimates = apply_model(self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"], mix.to(self.device), shifts=self.config.dataset.shifts,
+            estimates = apply_model(model, mix.to(self.device), shifts=self.config.dataset.shifts,
                                     split=self.config.split_valid, overlap=self.config.dataset.overlap)
             estimates = estimates * ref.std() + ref.mean()
 
@@ -732,9 +801,7 @@ class Trainer(object):
             stat["all"] = np.array(list(stat.values())).mean()
             json.dump(stat, open(eval_folder / "sdr.json", "w"))
             mlflow.log_artifact(str(eval_folder / "sdr.json"))
-            mlflow.log_metrics(stat, epoch)
-            # self.writer.add_scalars('sdr', stat, epoch)
-        return stat
+        return model, stat
 
     def _check_save_interval(self):
         # save to file
@@ -749,13 +816,15 @@ class Trainer(object):
         checkpoint_tmp_path.rename(checkpoint_path)
 
     def _check_eval_interval(self, epoch):
-        return
-        if epoch > 0 and self.metrics[-2]["best"] > self.metrics[-1]["best"]:
-            self._eval_epoch(track_indexes=[1], epoch=epoch)
+        if epoch % self.config.eval_interval == 0:
+            # if epoch > 0 and self.metrics[-2]["best"] > self.metrics[-1]["best"]:
+            self._eval_epoch(epoch)
 
     def _check_log_interval(self, epoch):
         # write logs
         mlflow.log_metrics(self.train_loss, epoch)
         mlflow.log_metrics(self.valid_loss, epoch)
+        mlflow.log_metrics(self.eval_loss, epoch)
         # self.writer.add_scalars('train_loss', self.train_loss, epoch)
         # self.writer.add_scalars('valid_loss', self.valid_loss, epoch)
+        # self.writer.add_scalars('eval_loss', self.eval_loss, epoch)
