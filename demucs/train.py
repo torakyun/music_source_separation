@@ -602,17 +602,10 @@ class Trainer(object):
                 total_adversarial_loss, total_real_loss, total_fake_loss, total_fm_loss = 0, 0, 0, 0
                 length = self.config.adversarial_valid_length
                 for index, start in enumerate(range(0, sources.size(-1)-1, length)):
-                    # print(estimates.size(),
-                    #       estimates[..., start:start+length].size())
                     p_ = self.model["discriminator"](
                         estimates[..., start:start+length])
                     p = self.model["discriminator"](
                         sources[..., start:start+length])
-                # for index in range(self.config.adversarial_valid_divide):
-                #     p_ = self.model["discriminator"](
-                #         estimates[..., index::self.config.adversarial_valid_divide])
-                #     p = self.model["discriminator"](
-                #         sources[..., index::self.config.adversarial_valid_divide])
                     total_adversarial_loss += self.criterion["gen_adv"](
                         p_).item()
                     real_loss, fake_loss = self.criterion["dis_adv"](p_, p)

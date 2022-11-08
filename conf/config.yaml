@@ -19,7 +19,6 @@ batch_divide: 1
 lr: 0.0003
 split_valid: false
 adversarial_valid_length: 15000000
-# adversarial_valid_divide: 1
 pretrained:
 
 # Other options
