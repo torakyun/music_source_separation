@@ -76,9 +76,8 @@ class Trainer(object):
         self.device = device
         self.outdir = Path(config.outdir.out)
         # self.writer = SummaryWriter(self.outdir / "tensorboard" / f"{self.config.name}")
-        self.total_train_loss = defaultdict(float)
-        self.total_valid_loss = defaultdict(float)
-        self.total_eval_loss = defaultdict(float)
+        self.train_loss = defaultdict(float)
+        self.valid_loss = defaultdict(float)
 
     def run(self):
         # mlflow setting
@@ -398,7 +397,7 @@ class Trainer(object):
                       file=sys.stdout,
                       unit=" batch")
             # reset
-            self.total_train_loss = defaultdict(float)
+            self.train_loss = defaultdict(float)
             for idx, sources in enumerate(tq):
                 # if idx > 0:
                 #     break
@@ -426,7 +425,7 @@ class Trainer(object):
                         l1_loss = self.criterion["l1"](
                             estimates, sources[start::self.config.batch_divide])
                         l1_loss /= self.config.batch_divide
-                        self.total_train_loss["train/l1_loss"] += l1_loss.item()
+                        self.train_loss["train/l1_loss"] += l1_loss.item()
                         gen_loss += self.config.loss.l1["lambda"] * l1_loss
                         del l1_loss
 
@@ -436,8 +435,8 @@ class Trainer(object):
                             estimates, sources[start::self.config.batch_divide])
                         sc_loss /= self.config.batch_divide
                         mag_loss /= self.config.batch_divide
-                        self.total_train_loss["train/spectral_convergence_loss"] += sc_loss.item()
-                        self.total_train_loss["train/log_stft_magnitude_loss"] += mag_loss.item()
+                        self.train_loss["train/spectral_convergence_loss"] += sc_loss.item()
+                        self.train_loss["train/log_stft_magnitude_loss"] += mag_loss.item()
                         gen_loss += self.config.loss.stft["lambda"] * (
                             sc_loss + mag_loss)
                         del sc_loss, mag_loss
@@ -447,11 +446,11 @@ class Trainer(object):
                         mel_loss = self.criterion["mel"](
                             estimates, sources[start::self.config.batch_divide])
                         mel_loss /= self.config.batch_divide
-                        self.total_train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
+                        self.train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
                         gen_loss += self.config.loss.mel["lambda"] * mel_loss
                         del mel_loss
 
-                    self.total_train_loss["train/gen_loss"] += gen_loss.item()
+                    self.train_loss["train/gen_loss"] += gen_loss.item()
 
                     # adversarial loss
                     if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
@@ -461,7 +460,7 @@ class Trainer(object):
                         p_ = self.model["discriminator"](estimates)
                         adv_loss = self.criterion["gen_adv"](p_)
                         adv_loss /= self.config.batch_divide
-                        self.total_train_loss["train/adversarial_loss"] += adv_loss.item()
+                        self.train_loss["train/adversarial_loss"] += adv_loss.item()
                         gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
                         del adv_loss
 
@@ -471,7 +470,7 @@ class Trainer(object):
                                 sources[start::self.config.batch_divide])
                             fm_loss = self.criterion["feat_match"](p_, p)
                             fm_loss /= self.config.batch_divide
-                            self.total_train_loss["train/feature_matching_loss"] += fm_loss.item()
+                            self.train_loss["train/feature_matching_loss"] += fm_loss.item()
                             gen_loss += self.config.loss.feat_match["lambda"] * fm_loss
                             del p, fm_loss
 
@@ -519,10 +518,10 @@ class Trainer(object):
                         real_loss, fake_loss = self.criterion["dis_adv"](p_, p)
                         real_loss /= self.config.batch_divide
                         fake_loss /= self.config.batch_divide
-                        self.total_train_loss["train/real_loss"] += real_loss.item()
-                        self.total_train_loss["train/fake_loss"] += fake_loss.item()
-                        self.total_train_loss["train/discriminator_loss"] = self.total_train_loss["train/real_loss"] + \
-                            self.total_train_loss["train/fake_loss"]
+                        self.train_loss["train/real_loss"] += real_loss.item()
+                        self.train_loss["train/fake_loss"] += fake_loss.item()
+                        self.train_loss["train/discriminator_loss"] = self.train_loss["train/real_loss"] + \
+                            self.train_loss["train/fake_loss"]
                         (real_loss + fake_loss).backward()
                         del real_loss, fake_loss, estimates
 
@@ -543,13 +542,13 @@ class Trainer(object):
                 # free some space before next round
                 del sources, mix
 
-                current_loss = self.total_train_loss["train/gen_loss"] / (
+                current_loss = self.train_loss["train/gen_loss"] / (
                     1 + idx)
                 tq.set_postfix(loss=f"{current_loss:.4f}", ms=f"{model_size:.2f}",
                                grad=f"{g_grad_norm:.5f}")
 
-            for k, v in self.total_train_loss.items():
-                self.total_train_loss[k] = v / (1 + idx)
+            for k, v in self.train_loss.items():
+                self.train_loss[k] = v / (1 + idx)
 
             if self.config.device.world_size > 1:
                 self.sampler["train"].epoch += 1
@@ -567,7 +566,7 @@ class Trainer(object):
                   file=sys.stdout,
                   unit=" track")
         # reset
-        self.total_valid_loss = defaultdict(float)
+        self.valid_loss = defaultdict(float)
         model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
         for idx, streams in enumerate(tq):
             # first five minutes to avoid OOM on --upsample models
@@ -584,7 +583,7 @@ class Trainer(object):
             # l1 loss
             if self.config.loss.l1["lambda"]:
                 l1_loss = self.criterion["l1"](estimates, sources).item()
-                self.total_valid_loss["valid/l1_loss"] += l1_loss
+                self.valid_loss["valid/l1_loss"] += l1_loss
                 gen_loss += self.config.loss.l1["lambda"] * l1_loss
 
             # multi-resolution sfft loss
@@ -597,8 +596,8 @@ class Trainer(object):
                     total_mag_loss += mag_loss.item()
                 sc_loss = total_sc_loss / (index + 1)
                 mag_loss = total_mag_loss / (index + 1)
-                self.total_valid_loss["valid/spectral_convergence_loss"] += sc_loss
-                self.total_valid_loss["valid/log_stft_magnitude_loss"] += mag_loss
+                self.valid_loss["valid/spectral_convergence_loss"] += sc_loss
+                self.valid_loss["valid/log_stft_magnitude_loss"] += mag_loss
                 gen_loss += self.config.loss.stft["lambda"] * \
                     ((sc_loss + mag_loss))
 
@@ -609,10 +608,10 @@ class Trainer(object):
                     total_mel_loss += self.criterion["mel"](
                         estimates[index], sources[index]).item()
                 mel_loss = total_mel_loss / (index + 1)
-                self.total_valid_loss["valid/mel_spectrogram_loss"] += mel_loss
+                self.valid_loss["valid/mel_spectrogram_loss"] += mel_loss
                 gen_loss += self.config.loss.mel["lambda"] * mel_loss
 
-            self.total_valid_loss["valid/gen_loss"] += gen_loss
+            self.valid_loss["valid/gen_loss"] += gen_loss
 
             # adversarial loss
             if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
@@ -649,19 +648,19 @@ class Trainer(object):
                 if self.config.loss.feat_match["lambda"]:
                     fm_loss = total_fm_loss / (index + 1)
 
-                self.total_valid_loss["valid/adversarial_loss"] += adversarial_loss
-                self.total_valid_loss["valid/real_loss"] += real_loss
-                self.total_valid_loss["valid/fake_loss"] += fake_loss
-                self.total_valid_loss["valid/discriminator_loss"] += (
+                self.valid_loss["valid/adversarial_loss"] += adversarial_loss
+                self.valid_loss["valid/real_loss"] += real_loss
+                self.valid_loss["valid/fake_loss"] += fake_loss
+                self.valid_loss["valid/discriminator_loss"] += (
                     real_loss + fake_loss)
                 if self.config.loss.feat_match["lambda"]:
-                    self.total_valid_loss["valid/feature_matching_loss"] += fm_loss
+                    self.valid_loss["valid/feature_matching_loss"] += fm_loss
 
             del estimates, streams, sources
 
-        for k, v in self.total_valid_loss.items():
-            self.total_valid_loss[k] = v / (1 + idx)
-        current_loss = self.total_valid_loss["valid/gen_loss"]
+        for k, v in self.valid_loss.items():
+            self.valid_loss[k] = v / (1 + idx)
+        current_loss = self.valid_loss["valid/gen_loss"]
         if self.config.device.world_size > 1:
             current_loss = average_metric(current_loss)
         return current_loss
@@ -756,11 +755,7 @@ class Trainer(object):
 
     def _check_log_interval(self, epoch):
         # write logs
-        mlflow.log_metrics(self.total_train_loss, epoch)
-        mlflow.log_metrics(self.total_valid_loss, epoch)
-        # self.writer.add_scalars('train_loss', self.total_train_loss, epoch)
-        # self.writer.add_scalars('valid_loss', self.total_valid_loss, epoch)
-
-        # reset
-        self.total_train_loss = defaultdict(float)
-        self.total_valid_loss = defaultdict(float)
+        mlflow.log_metrics(self.train_loss, epoch)
+        mlflow.log_metrics(self.valid_loss, epoch)
+        # self.writer.add_scalars('train_loss', self.train_loss, epoch)
+        # self.writer.add_scalars('valid_loss', self.valid_loss, epoch)
