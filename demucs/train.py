@@ -302,11 +302,11 @@ class Trainer(object):
         if is_pytorch_17plus:
             stft_params["return_complex"] = False
         mel_params = {
-            "sr": 44100,
+            "sr": self.config.dataset.samplerate,
             "n_fft": stft_params["n_fft"],
             "n_mels": 80,
             "fmin": 0,
-            "fmax": 22050,
+            "fmax": self.config.dataset.samplerate // 2,
         } if not mel_params else mel_params
         if window is not None:
             window_func = getattr(torch, f"{window}_window")
@@ -766,7 +766,7 @@ class Trainer(object):
                 track_folder.mkdir(exist_ok=True, parents=True)
                 for name, estimate in zip(model.sources, estimates):
                     wavfile.write(
-                        str(track_folder / (name + ".wav")), 44100, estimate)
+                        str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
                     # mlflow.log_artifact(
                     #     str(track_folder / (name + ".wav")), "wav")
                     # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
