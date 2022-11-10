@@ -41,6 +41,8 @@ def get_name():
     show_names = {
         "pretrained": "pretrained",
         "epochs": "epochs",
+        "dataset.samplerate": "samplerate",
+        "dataset.audio_channels": "channels",
         "loss.l1.lambda": "l1",
         "loss.stft.lambda": "stft",
         "loss.mel.lambda": "mel",
@@ -127,6 +129,8 @@ def main(cfg):
             name=cfg.model.discriminator.get(
                 "name", "ParallelWaveGANDiscriminator"),
             params=cfg.model.discriminator.get("params", {}),
+            sources=len(cfg.dataset.sources),
+            channels=cfg.dataset.audio_channels,
             separate=cfg.model.discriminator.get("separate", "full"),
         ).to(device)
 
@@ -142,9 +146,10 @@ def main(cfg):
     # Setting number of samples so that all convolution windows are full.
     # Prevents hard to debug mistake with the prediction being shifted compared
     # to the input mixture.
-    samples = model["generator"].valid_length(cfg.dataset.samples)
+    samples = model["generator"].valid_length(
+        cfg.dataset.sample_seconds * cfg.dataset.samplerate)
     print(f"Number of training samples adjusted to {samples}")
-    samples = samples + cfg.dataset.data_stride
+    samples += cfg.dataset.stride_seconds * cfg.dataset.samplerate
     if cfg.dataset.repitch:
         # We need a bit more audio samples, to account for potential
         # tempo change.
@@ -159,7 +164,7 @@ def main(cfg):
                            channels=cfg.dataset.audio_channels,
                            streams=range(
                                1, len(model["generator"].sources) + 1),
-                           stride=cfg.dataset.data_stride)
+                           stride=cfg.dataset.stride_seconds * cfg.dataset.samplerate)
 
         valid_set = Rawset(raw_path / "valid",
                            channels=cfg.dataset.audio_channels)
@@ -185,6 +190,7 @@ def main(cfg):
     if cfg.dataset.repitch:
         train_set = RepitchedWrapper(
             train_set,
+            cfg.dataset.samplerate,
             proba=cfg.dataset.repitch,
             max_tempo=cfg.dataset.max_tempo)
 
@@ -222,7 +228,7 @@ def main(cfg):
     }
 
     # define augments
-    augment = [Shift(cfg.dataset.data_stride)]
+    augment = [Shift(cfg.dataset.stride_seconds * cfg.dataset.samplerate)]
     if cfg.dataset.augment:
         augment += [FlipSign(), FlipChannels(), Scale(),
                     Remix(group_size=cfg.dataset.remix_group_size)]

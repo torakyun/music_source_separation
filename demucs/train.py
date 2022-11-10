@@ -34,7 +34,7 @@ is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
 
 
 ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half", "eval_interval", "eval_second", "eval_epoch_path", "out",
-                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "dataset", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
+                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
 
 
 class Trainer(object):

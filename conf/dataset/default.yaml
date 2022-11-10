@@ -17,8 +17,8 @@ sources:
   - vocals
 samplerate: 44100
 audio_channels: 2
-samples: 441000 # samplerate * 10s
-data_stride: 44100 # samplerate * 1s
+sample_seconds: 10 # 10s
+stride_seconds: 1 # 1s
 norm_wav: true
 
 # augument

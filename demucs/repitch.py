@@ -30,8 +30,10 @@ class RepitchedWrapper:
     """
     Wrap a dataset to apply online change of pitch / tempo.
     """
-    def __init__(self, dataset, proba=0.2, max_pitch=2, max_tempo=12, tempo_std=5, vocals=[3]):
+
+    def __init__(self, dataset, samplerate, proba=0.2, max_pitch=2, max_tempo=12, tempo_std=5, vocals=[3]):
         self.dataset = dataset
+        self.samplerate = samplerate
         self.proba = proba
         self.max_pitch = max_pitch
         self.max_tempo = max_tempo
@@ -56,7 +58,8 @@ class RepitchedWrapper:
                     stream,
                     delta_pitch,
                     delta_tempo,
-                    voice=idx in self.vocals)
+                    voice=idx in self.vocals,
+                    samplerate=self.samplerate)
                 outs.append(stream[:, :out_length])
             streams = torch.stack(outs)
         else:
@@ -92,5 +95,7 @@ def repitch(wav, pitch, tempo, voice=False, quick=False, samplerate=44100):
     sr, wav = wavfile.read(outfile.name)
     wav = wav.copy()
     wav = f32_pcm(torch.from_numpy(wav).t())
+    if len(wav.size()) == 1:
+        wav = wav.unsqueeze(0)
     assert sr == samplerate
     return wav

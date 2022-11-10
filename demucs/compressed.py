@@ -101,11 +101,10 @@ def get_compressed_datasets(cfg, samples):
         distributed.barrier()
     metadata = json.load(open(metadata_file))
     duration = Fraction(samples, cfg.dataset.samplerate)
-    stride = Fraction(cfg.dataset.data_stride, cfg.dataset.samplerate)
     train_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="train"),
                          metadata,
                          duration=duration,
-                         stride=stride,
+                         stride=cfg.dataset.stride_seconds,
                          streams=slice(1, None),
                          samplerate=cfg.dataset.samplerate,
                          channels=cfg.dataset.audio_channels)

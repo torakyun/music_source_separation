@@ -4,4 +4,4 @@ params:
 sources: ${dataset.sources}
 audio_channels: ${dataset.audio_channels}
 samplerate: ${dataset.samplerate}
-samples: ${dataset.samples}
+sample_seconds: ${dataset.sample_seconds}

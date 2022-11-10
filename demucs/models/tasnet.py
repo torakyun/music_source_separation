@@ -80,7 +80,7 @@ class ConvTasNet(nn.Module):
                  causal=False,
                  mask_nonlinear='relu',
                  samplerate=44100,
-                 samples=44100 * 2):
+                 sample_seconds=2):
         """
         Args:
             sources: list of sources
@@ -105,7 +105,7 @@ class ConvTasNet(nn.Module):
         self.mask_nonlinear = mask_nonlinear
         self.audio_channels = audio_channels
         self.samplerate = samplerate
-        self.segment_length = 4 * samples
+        self.segment_length = 4 * sample_seconds * samplerate
         # Components
         self.encoder = Encoder(L, N, audio_channels)
         self.separator = TemporalConvNet(

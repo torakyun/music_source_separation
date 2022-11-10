@@ -58,7 +58,7 @@ class Demucs(nn.Module):
                  context=3,
                  normalize=False,
                  samplerate=44100,
-                 samples=10 * 44100):
+                 sample_seconds=10):
         """
         Args:
             sources (list[str]): list of source names
@@ -99,7 +99,7 @@ class Demucs(nn.Module):
         self.channels = channels
         self.normalize = normalize
         self.samplerate = samplerate
-        self.segment_length = 4 * samples
+        self.segment_length = 4 * sample_seconds * samplerate
 
         self.encoder = nn.ModuleList()
         self.decoder = nn.ModuleList()
