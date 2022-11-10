@@ -147,7 +147,7 @@ def get_wav_datasets(cfg, samples, sources):
         distributed.barrier()
     train, valid = json.load(open(metadata_file))
     train_set = Wavset(train_path, train, sources,
-                       length=samples, stride=cfg.dataset.data_stride,
+                       length=samples, stride=cfg.dataset.stride_seconds * cfg.dataset.samplerate,
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
                        normalize=cfg.dataset.norm_wav)
     valid_set = Wavset(valid_path, valid, [MIXTURE] + sources,
@@ -171,7 +171,7 @@ def get_musdb_wav_datasets(cfg, samples, sources):
     metadata_train = {name: meta for name, meta in metadata.items() if name in train_tracks}
     metadata_valid = {name: meta for name, meta in metadata.items() if name not in train_tracks}
     train_set = Wavset(root, metadata_train, sources,
-                       length=samples, stride=cfg.dataset.data_stride,
+                       length=samples, stride=cfg.dataset.stride_seconds * cfg.dataset.samplerate,
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
                        normalize=cfg.dataset.norm_wav)
     valid_set = Wavset(root, metadata_valid, [MIXTURE] + sources,
