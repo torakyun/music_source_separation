@@ -657,11 +657,11 @@ class Trainer(object):
             ref = mix.mean(dim=0)  # mono mixture
             mix = (mix - ref.mean()) / ref.std()
             mix = convert_audio(mix, from_samplerate,
-                                self.config.dataset.samplerate, self.config.dataset.channels)
+                                self.config.dataset.samplerate, self.config.dataset.audio_channels)
             references = torch.stack(
                 [torch.from_numpy(track.targets[name].audio).t() for name in ["drums", "bass", "other", "vocals"]])
             references = convert_audio(
-                references, from_samplerate, self.config.dataset.samplerate, self.config.dataset.channels)
+                references, from_samplerate, self.config.dataset.samplerate, self.config.dataset.audio_channels)
             track = {
                 "name": track.name,
                 "mix": mix, "mean": ref.mean(),
