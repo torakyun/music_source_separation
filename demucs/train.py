@@ -81,6 +81,9 @@ class Trainer(object):
         self.train_loss = defaultdict(float)
         self.valid_loss = defaultdict(float)
         self.eval_loss = defaultdict(float)
+        self.fig = plt.figure(constrained_layout=True, figsize=(20, 15))
+        self.axes = self.fig.subplots(
+            nrows=len(self.config.dataset.sources), ncols=3, sharex=False)
 
     def run(self):
         # mlflow setting
@@ -260,36 +263,36 @@ class Trainer(object):
             # print(parent_name, "=", element)
             mlflow.log_param(parent_name, element)
 
-    def log_and_save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
-        def log_and_save_spectrogram(title, r, e, d, dir, xmax=None, sources=["drums", "bass", "other", "vocals"], targets=["reference", "estimate", "difference"]):
-            fig = plt.figure(constrained_layout=True, figsize=(20, 15))
-            # fig.suptitle(title, fontsize='xx-large')
-            axes = fig.subplots(
-                nrows=len(sources), ncols=len(targets), sharex=False)
-            for i, source in enumerate(sources):
-                for j, target in enumerate(targets):
-                    # if i == 0:
-                    #     axes[i, j].text(0.5, 1, target)
-                    axes[i, j].set_xlabel("frame")
-                    axes[i, j].set_ylabel("freq_bin")
-                    if j == 0:
-                        # axes[i, j].text(-0.1, 0.5, source)
-                        im = axes[i, j].imshow(
-                            r[i].cpu(), origin="lower", aspect="auto")
-                    elif j == 1:
-                        im = axes[i, j].imshow(
-                            e[i].cpu(), origin="lower", aspect="auto")
-                    elif j == 2:
-                        im = axes[i, j].imshow(
-                            d[i].cpu(), origin="lower", aspect="auto")
-                if xmax:
-                    axes[i, j].set_xlim((0, xmax))
-                fig.colorbar(im, ax=axes[i, j])
-            title = title.replace(" ", "_")
-            path = Path(dir) / f"{title}.png"
-            fig.savefig(path)
-            mlflow.log_figure(fig, f"figure/{title}.png")
+    def write_figure(self, title, r, e, d, dir, xmax=None):
+        sources = ["drums", "bass", "other", "vocals"]
+        targets = ["reference", "estimate", "difference"]
+        # fig.suptitle(title, fontsize='xx-large')
+        for i, source in enumerate(sources):
+            for j, target in enumerate(targets):
+                # if i == 0:
+                #     axes[i, j].text(0.5, 1, target)
+                self.axes[i, j].set_xlabel("frame")
+                self.axes[i, j].set_ylabel("freq_bin")
+                if j == 0:
+                    # axes[i, j].text(-0.1, 0.5, source)
+                    im = self.axes[i, j].imshow(
+                        r[i].cpu(), origin="lower", aspect="auto")
+                elif j == 1:
+                    im = self.axes[i, j].imshow(
+                        e[i].cpu(), origin="lower", aspect="auto")
+                elif j == 2:
+                    im = self.axes[i, j].imshow(
+                        d[i].cpu(), origin="lower", aspect="auto")
+            if xmax:
+                self.axes[i, j].set_xlim((0, xmax))
+            self.fig.colorbar(im, ax=self.axes[i, j])
+        title = title.replace(" ", "_")
+        path = Path(dir) / f"{title}.png"
+        self.fig.savefig(path)
+        mlflow.log_figure(self.fig, f"figure/{title}.png")
+        plt.cla()
 
+    def log_and_save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
         # Spectrogram params
         stft_params = {
             "n_fft": 2048,
@@ -329,13 +332,13 @@ class Trainer(object):
         del references_stft, estimates_stft
 
         # STFT spectrogram
-        log_and_save_spectrogram(
+        self.write_figure(
             "STFT", references_mag, estimates_mag, differences_stft, dir)
         del differences_stft
 
         # Magnitude spectrogram
         differences_mag = (references_mag - estimates_mag).abs()
-        log_and_save_spectrogram(
+        self.write_figure(
             "Magnitude Spectrogram", references_mag, estimates_mag, differences_mag, dir)
         del differences_mag
 
@@ -343,7 +346,7 @@ class Trainer(object):
         references_log_mag = torch.log(references_mag)
         estimates_log_mag = torch.log(estimates_mag)
         differences_log_mag = (references_log_mag - estimates_log_mag).abs()
-        log_and_save_spectrogram(
+        self.write_figure(
             "Log-Scale Magnitude Spectrogram", references_log_mag, estimates_log_mag, differences_log_mag, dir)
         del references_log_mag, estimates_log_mag, differences_log_mag
 
@@ -355,7 +358,7 @@ class Trainer(object):
         estimates_mel = torch.clamp(torch.matmul(
             melmat, estimates_mag), min=1e-7)
         differences_mel = (references_mel - estimates_mel).abs()
-        log_and_save_spectrogram(
+        self.write_figure(
             "Mel Spectrogram", references_mel, estimates_mel, differences_mel, dir)
         del melmat, differences_mel
 
@@ -363,7 +366,7 @@ class Trainer(object):
         references_log_mel = torch.log(references_mel)
         estimates_log_mel = torch.log(estimates_mel)
         differences_log_mel = (references_log_mel - estimates_log_mel).abs()
-        log_and_save_spectrogram(
+        self.write_figure(
             "Log-Scale Mel Spectrogram", references_log_mel, estimates_log_mel, differences_log_mel, dir)
 
     def _train_epoch(self, epoch):
