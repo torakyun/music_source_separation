@@ -79,15 +79,15 @@ def main(cfg):
             file=sys.stderr)
         sys.exit(1)
 
-    out = Path(cfg.outdir.out)
-    log_folder = out / cfg.outdir.logs
+    out = Path(cfg.out)
+    log_folder = out / "logs"
     log_folder.mkdir(exist_ok=True, parents=True)
-    checkpoint_folder = out / cfg.outdir.checkpoints
+    checkpoint_folder = out / "checkpoints"
     checkpoint_folder.mkdir(exist_ok=True, parents=True)
     checkpoint = checkpoint_folder / f"{name}.th"
     if cfg.restart and checkpoint.exists() and cfg.device.rank == 0:
         checkpoint.unlink()
-    model_folder = out / cfg.outdir.models
+    model_folder = out / "models"
     model_folder.mkdir(exist_ok=True, parents=True)
 
     th.manual_seed(cfg.seed)

@@ -94,7 +94,7 @@ def _build_musdb_metadata(path, musdb, workers):
 
 
 def get_compressed_datasets(cfg, samples):
-    metadata_file = Path(cfg.outdir.out) / cfg.dataset.musdb.metadata / "musdb.json"
+    metadata_file = Path(cfg.out) / cfg.dataset.musdb.metadata / "musdb.json"
     if not metadata_file.is_file() and cfg.device.rank == 0:
         _build_musdb_metadata(metadata_file, cfg.dataset.musdb.path, cfg.device.workers)
     if cfg.device.world_size > 1:

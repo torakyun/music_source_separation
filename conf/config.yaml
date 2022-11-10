@@ -1,6 +1,5 @@
 defaults:
   - _self_
-  - outdir: default
   - device: default
   - dataset: default
   - model/generator: demucs
@@ -30,6 +29,7 @@ half: false # When saving the model, uses half precision.
 eval_interval: 10
 eval_second: 210
 eval_epoch_path: "../eval.th"
+out: "../out"
 
 # Quantization options
 q-min-size: 1 # Only quantize layers over this size (in MB)

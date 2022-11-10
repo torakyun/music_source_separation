@@ -34,7 +34,7 @@ is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
 
 
 ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half", "eval_interval", "eval_second", "eval_epoch_path", "out",
-                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "outdir", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
+                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
 
 
 class Trainer(object):
@@ -76,7 +76,7 @@ class Trainer(object):
         self.optimizer = optimizer
         self.config = config
         self.device = device
-        self.outdir = Path(config.outdir.out)
+        self.outdir = Path(config.out)
         # self.writer = SummaryWriter(self.outdir / "tensorboard" / f"{self.config.name}")
         self.train_loss = defaultdict(float)
         self.valid_loss = defaultdict(float)
@@ -801,7 +801,7 @@ class Trainer(object):
         log_folder = self.outdir / "logs"
         metrics_path = log_folder / f"{self.config.name}.json"
         json.dump(self.metrics, open(metrics_path, "w"))
-        checkpoint_folder = self.outdir / self.config.outdir.checkpoints
+        checkpoint_folder = self.outdir / "checkpoints"
         checkpoint_folder.mkdir(exist_ok=True, parents=True)
         checkpoint_path = checkpoint_folder / f"{self.config.name}.th"
         checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"

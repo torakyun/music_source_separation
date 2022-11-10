@@ -1,6 +1,5 @@
 defaults:
   - dataset: colab
   - device: default
-  - outdir: default
   - param: colab
   - model/generator/demucs: colab
