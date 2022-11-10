@@ -28,7 +28,6 @@ save_state: false # Skip training, just save state for the current checkpoint va
 half: false # When saving the model, uses half precision.
 eval_interval: 10
 eval_second: 210
-eval_epoch_path: "../eval.th"
 out: "../out"
 
 # Quantization options

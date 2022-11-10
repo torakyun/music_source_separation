@@ -648,6 +648,12 @@ class Trainer(object):
     @torch.no_grad()
     def _eval_epoch(self, epoch=0):
         # make eval track1
+        data_dir = self.outdir / "eval_data"
+        data_dir.mkdir(exist_ok=True, parents=True)
+        data_file = f"{self.config.dataset.samplerate}_{self.config.dataset.audio_channels}"
+        for name in self.config.dataset.sources:
+            data_file += f"_{name}"
+        data_file += ".th"
         if epoch == 0:
             test_set = musdb.DB(
                 self.config.dataset.musdb.path, subsets=["test"])
@@ -668,10 +674,9 @@ class Trainer(object):
                 "std": ref.std(),
                 "targets": references
             }
-            torch.save(track, self.config.eval_epoch_path)
+            torch.save(track, data_dir / data_file)
         else:
-            track = torch.load(
-                Path(self.config.eval_epoch_path), map_location="cpu")
+            track = torch.load(data_dir / data_file, map_location="cpu")
 
         """Evaluate model one epoch."""
         eval_folder = self.outdir / "evals" / self.config.name
