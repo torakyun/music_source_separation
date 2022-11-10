@@ -260,7 +260,7 @@ class Trainer(object):
             for i, v in enumerate(element):
                 self._explore_recursive(f'{parent_name}.{i}', v)
         else:
-            # print(parent_name, "=", element)
+            # if parent_name in show_params:
             mlflow.log_param(parent_name, element)
 
     def write_figure(self, title, r, e, d, dir, xmax=None):
@@ -713,14 +713,11 @@ class Trainer(object):
         # cal SDR
         win = int(1. * self.config.dataset.samplerate)
         hop = int(1. * self.config.dataset.samplerate)
-        print("sdr!")
         sdr, isr, sir, sar = museval.evaluate(
             references[:, :second, :], estimates[:, :second, :], win=win, hop=hop)
-        print("sdr!")
         for idx, source in enumerate(self.config.dataset.sources):
             self.eval_loss[f"eval/sdr_{source}"] = np.nanmedian(
                 sdr[idx].tolist())
-            print(source)
         self.eval_loss["eval/sdr_all"] = np.array(
             list(self.eval_loss.values())).mean()
         json.dump(self.eval_loss, open(eval_folder / "sdr.json", "w"))
