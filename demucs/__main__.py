@@ -300,15 +300,15 @@ def main(cfg):
         config=cfg,
         device=device,
     )
-    try:
-        if cfg.pretrained:
-            trainer.load_checkpoint(
-                checkpoint_folder / (cfg.pretrained.replace("-", "=") + ".th"), load_only_params=True)
-            print("load pretrained")
-        else:
+    if cfg.pretrained:
+        trainer.load_checkpoint(
+            checkpoint_folder / (cfg.pretrained + ".th"), load_only_params=True)
+        print("load pretrained")
+    else:
+        try:
             trainer.load_checkpoint(checkpoint)
-    except IOError:
-        pass
+        except IOError:
+            pass
 
     # only save best state
     model_name = f"{name}.th"
