@@ -427,10 +427,10 @@ class Trainer(object):
                 sources = self.augment(sources)
                 mix = sources.sum(dim=1)
 
-                #######################
-                #      Generator      #
-                #######################
                 for start in range(self.config.batch_divide):
+                    #######################
+                    #      Generator      #
+                    #######################
                     estimates = self.model["generator"](
                         mix[start::self.config.batch_divide])
                     if start == 0:
@@ -496,7 +496,31 @@ class Trainer(object):
                         del p_
 
                     gen_loss.backward()
-                    del gen_loss, estimates
+                    del gen_loss
+
+                    #######################
+                    #    Discriminator    #
+                    #######################
+                    if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                        # discriminator loss
+                        self.set_requires_grad(
+                            self.model["discriminator"], True)
+                        real_loss, fake_loss = self.criterion["dis_adv"](
+                            self.model["discriminator"](estimates.detach()),
+                            self.model["discriminator"](sources[start::self.config.batch_divide]))
+                        real_loss /= self.config.batch_divide
+                        fake_loss /= self.config.batch_divide
+                        self.train_loss["train/real_loss"] += real_loss.item()
+                        self.train_loss["train/fake_loss"] += fake_loss.item()
+                        self.train_loss["train/discriminator_loss"] = self.train_loss["train/real_loss"] + \
+                            self.train_loss["train/fake_loss"]
+                        (real_loss + fake_loss).backward()
+                        del real_loss, fake_loss
+
+                    del estimates
+
+                # free some space before next round
+                del sources, mix
 
                 # model size loss
                 model_size = 0
@@ -519,32 +543,8 @@ class Trainer(object):
                 self.optimizer["generator"].step()
                 self.optimizer["generator"].zero_grad()
 
-                #######################
-                #    Discriminator    #
-                #######################
+                # update discriminator
                 if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
-                    for start in range(self.config.batch_divide):
-                        with torch.no_grad():
-                            estimates = self.model["generator"](
-                                mix[start::self.config.batch_divide])
-
-                        # discriminator loss
-                        self.set_requires_grad(
-                            self.model["discriminator"], True)
-                        p = self.model["discriminator"](
-                            sources[start::self.config.batch_divide])
-                        p_ = self.model["discriminator"](estimates)
-                        real_loss, fake_loss = self.criterion["dis_adv"](p_, p)
-                        real_loss /= self.config.batch_divide
-                        fake_loss /= self.config.batch_divide
-                        self.train_loss["train/real_loss"] += real_loss.item()
-                        self.train_loss["train/fake_loss"] += fake_loss.item()
-                        self.train_loss["train/discriminator_loss"] = self.train_loss["train/real_loss"] + \
-                            self.train_loss["train/fake_loss"]
-                        (real_loss + fake_loss).backward()
-                        del real_loss, fake_loss, estimates
-
-                    # update discriminator
                     d_grad_norm = 0
                     if self.config.model.discriminator.grad_norm > 0:
                         torch.nn.utils.clip_grad_norm_(
@@ -557,9 +557,6 @@ class Trainer(object):
                     d_grad_norm = d_grad_norm**0.5
                     self.optimizer["discriminator"].step()
                     self.optimizer["discriminator"].zero_grad()
-
-                # free some space before next round
-                del sources, mix
 
                 current_loss = self.train_loss["train/gen_loss"] / (
                     1 + idx)
