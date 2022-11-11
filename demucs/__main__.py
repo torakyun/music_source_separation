@@ -41,15 +41,16 @@ def get_name():
     show_names = {
         "pretrained": "pretrained",
         "epochs": "epochs",
-        "dataset.samplerate": "samplerate",
-        "dataset.audio_channels": "channels",
+        "dataset.samplerate": "sr",
+        "dataset.audio_channels": "ch",
         "loss.l1.lambda": "l1",
         "loss.stft.lambda": "stft",
         "loss.mel.lambda": "mel",
-        "loss.adversarial.lambda": "adversarial",
-        "loss.feat_match.lambda": "feat_match",
-        "model/discriminator": "discriminator",
-        "model.discriminator.separate": "separate",
+        "loss.adversarial.lambda": "adv",
+        "loss.feat_match.lambda": "fm",
+        "model/generator": "gen",
+        "model/discriminator": "dis",
+        "model.discriminator.separate": "sep",
     }
     params = {}
     for arg in args:
