@@ -16,12 +16,49 @@ import tempfile
 import warnings
 import zlib
 from contextlib import contextmanager
+import subprocess
+import shlex
 
 from diffq import UniformQuantizer, DiffQuantizer
 import torch as th
 import tqdm
 from torch import distributed
 from torch.nn import functional as F
+
+
+def gpulife(title):
+    """
+    Returns GPU usage information in string.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    msg: str
+    """
+
+    def _gpuinfo():
+        command = 'nvidia-smi -q -d MEMORY | sed -n "/FB Memory Usage/,/Free/p" | sed -e "1d" -e "s/ MiB//g" | cut -d ":" -f 2 | cut -c2-'
+        commands = [shlex.split(part) for part in command.split(' | ')]
+        for i, cmd in enumerate(commands):
+            if i == 0:
+                res = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+            else:
+                res = subprocess.Popen(
+                    cmd, stdin=res.stdout, stdout=subprocess.PIPE)
+        return tuple(map(int, res.communicate()[0].decode('utf-8').strip().split('\n')))
+
+    res = _gpuinfo()
+    if len(res) == 3:
+        total, used, free = res
+    if len(res) == 4:
+        total, reserved, used, free = res
+    percent = int(used / total * 100)
+    msg = 'GPU RAM Usage: {} {}/{} MiB ({:.1f}%)'.format(
+        '|' * (percent // 5) + '.' * (20 - percent // 5), used, total, used/total*100)
+    print(title, ": ", msg)
 
 
 def center_trim(tensor, reference):

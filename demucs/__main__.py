@@ -20,7 +20,7 @@ from .compressed import get_compressed_datasets
 from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .train import Trainer
-from .utils import (save_model, get_state,
+from .utils import (gpulife, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
 

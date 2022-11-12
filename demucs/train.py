@@ -24,7 +24,7 @@ import mlflow
 from omegaconf import DictConfig, ListConfig
 
 from .audio import convert_audio
-from .utils import human_seconds, apply_model, save_model, average_metric, center_trim
+from .utils import gpulife, human_seconds, apply_model, save_model, average_metric, center_trim
 
 import torch
 from torch import distributed
@@ -368,38 +368,6 @@ class Trainer(object):
         differences_log_mel = (references_log_mel - estimates_log_mel).abs()
         self.write_figure(
             "Log-Scale Mel Spectrogram", references_log_mel, estimates_log_mel, differences_log_mel, dir)
-
-    def gpulife(self, title):
-        """
-        Returns GPU usage information in string.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        msg: str
-        """
-        import subprocess
-        import shlex
-
-        def _gpuinfo():
-            command = 'nvidia-smi -q -d MEMORY | sed -n "/FB Memory Usage/,/Free/p" | sed -e "1d" -e "4d" -e "s/ MiB//g" | cut -d ":" -f 2 | cut -c2-'
-            commands = [shlex.split(part) for part in command.split(' | ')]
-            for i, cmd in enumerate(commands):
-                if i == 0:
-                    res = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-                else:
-                    res = subprocess.Popen(
-                        cmd, stdin=res.stdout, stdout=subprocess.PIPE)
-            return tuple(map(int, res.communicate()[0].decode('utf-8').strip().split('\n')))
-
-        total, used = _gpuinfo()
-        percent = int(used / total * 100)
-        msg = 'GPU RAM Usage: {} {}/{} MiB ({:.1f}%)'.format(
-            '|' * (percent // 5) + '.' * (20 - percent // 5), used, total, used/total*100)
-        print(title, ": ", msg)
 
     def _train_epoch(self, epoch):
         """Train model one epoch."""
