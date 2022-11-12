@@ -34,7 +34,7 @@ is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
 
 
 ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half", "eval_interval", "eval_second", "eval_epoch_path", "out",
-                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
+                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.mag.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
 
 
 class Trainer(object):
@@ -424,17 +424,32 @@ class Trainer(object):
                     # print("l1_loss: ", time.time() - start_t)
                     # start_t = time.time()
 
+                    # multi-resolution magnitude loss
+                    if self.config.loss.mag["lambda"]:
+                        mag_loss, log_mag_loss = self.criterion["mag"](
+                            estimates, sources[start::self.config.batch_divide])
+                        mag_loss /= self.config.batch_divide
+                        log_mag_loss /= self.config.batch_divide
+                        self.train_loss["train/magnitude_spectrogram_loss"] += mag_loss.item()
+                        self.train_loss["train/log_magnitude_spectrogram_loss"] += log_mag_loss.item()
+                        gen_loss += self.config.loss.mag["lambda"] * (
+                            mag_loss + log_mag_loss)
+                        del mag_loss, log_mag_loss
+                    # gpulife("mag_loss")
+                    # print("mag_loss: ", time.time() - start_t)
+                    # start_t = time.time()
+
                     # multi-resolution sfft loss
                     if self.config.loss.stft["lambda"]:
-                        sc_loss, mag_loss = self.criterion["stft"](
+                        stft_loss, log_stft_loss = self.criterion["stft"](
                             estimates, sources[start::self.config.batch_divide])
-                        sc_loss /= self.config.batch_divide
-                        mag_loss /= self.config.batch_divide
-                        self.train_loss["train/spectral_convergence_loss"] += sc_loss.item()
-                        self.train_loss["train/log_stft_magnitude_loss"] += mag_loss.item()
+                        stft_loss /= self.config.batch_divide
+                        log_stft_loss /= self.config.batch_divide
+                        self.train_loss["train/stft_loss"] += stft_loss.item()
+                        self.train_loss["train/log_stft_loss"] += log_stft_loss.item()
                         gen_loss += self.config.loss.stft["lambda"] * (
-                            sc_loss + mag_loss)
-                        del sc_loss, mag_loss
+                            stft_loss + log_stft_loss)
+                        del stft_loss, log_stft_loss
                     # gpulife("stft_loss")
                     # print("stft_loss: ", time.time() - start_t)
                     # start_t = time.time()
@@ -602,20 +617,35 @@ class Trainer(object):
                 self.valid_loss["valid/l1_loss"] += l1_loss
                 gen_loss += self.config.loss.l1["lambda"] * l1_loss
 
+            # multi-resolution magnitude loss
+            if self.config.loss.mag["lambda"]:
+                total_mag_loss, total_log_mag_loss = 0, 0
+                for index in range(sources.size(0)):
+                    mag_loss, log_mag_loss = self.criterion["mag"](
+                        estimates[index], sources[index])
+                    total_mag_loss += mag_loss.item()
+                    total_log_mag_loss += log_mag_loss.item()
+                mag_loss = total_mag_loss / (index + 1)
+                log_mag_loss = total_log_mag_loss / (index + 1)
+                self.valid_loss["valid/magnitude_spectrogram_loss"] += mag_loss
+                self.valid_loss["valid/log_magnitude_spectrogram_loss"] += log_mag_loss
+                gen_loss += self.config.loss.mag["lambda"] * \
+                    ((mag_loss + log_mag_loss))
+
             # multi-resolution sfft loss
             if self.config.loss.stft["lambda"]:
-                total_sc_loss, total_mag_loss = 0, 0
+                total_stft_loss, total_log_stft_loss = 0, 0
                 for index in range(sources.size(0)):
-                    sc_loss, mag_loss = self.criterion["stft"](
+                    stft_loss, log_stft_loss = self.criterion["stft"](
                         estimates[index], sources[index])
-                    total_sc_loss += sc_loss.item()
-                    total_mag_loss += mag_loss.item()
-                sc_loss = total_sc_loss / (index + 1)
-                mag_loss = total_mag_loss / (index + 1)
-                self.valid_loss["valid/spectral_convergence_loss"] += sc_loss
-                self.valid_loss["valid/log_stft_magnitude_loss"] += mag_loss
+                    total_stft_loss += stft_loss.item()
+                    total_log_stft_loss += log_stft_loss.item()
+                stft_loss = total_stft_loss / (index + 1)
+                log_stft_loss = total_log_stft_loss / (index + 1)
+                self.valid_loss["valid/stft_loss"] += stft_loss
+                self.valid_loss["valid/log_stft_loss"] += log_stft_loss
                 gen_loss += self.config.loss.stft["lambda"] * \
-                    ((sc_loss + mag_loss))
+                    ((stft_loss + log_stft_loss))
 
             # mel spectrogram loss
             if self.config.loss.mel["lambda"]:

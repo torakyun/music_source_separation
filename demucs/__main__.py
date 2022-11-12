@@ -30,6 +30,7 @@ from .losses import DiscriminatorAdversarialLoss
 from .losses import FeatureMatchLoss
 from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
+from .losses import MultiResolutionMagnitudeLoss
 from .losses import MultiResolutionSTFTLoss
 
 from omegaconf import OmegaConf
@@ -44,6 +45,7 @@ def get_name():
         "dataset.samplerate": "sr",
         "dataset.audio_channels": "ch",
         "loss.l1.lambda": "l1",
+        "loss.mag.lambda": "mag",
         "loss.stft.lambda": "stft",
         "loss.mel.lambda": "mel",
         "loss.adversarial.lambda": "adv",
@@ -245,6 +247,9 @@ def main(cfg):
         criterion["l1"] = nn.L1Loss()
     if cfg.loss.mse["lambda"]:
         criterion["mse"] = nn.MSELoss()
+    if cfg.loss.mag["lambda"]:
+        criterion["mag"] = MultiResolutionMagnitudeLoss(
+            **cfg.loss.mag.params).to(device)
     if cfg.loss.stft["lambda"]:
         criterion["stft"] = MultiResolutionSTFTLoss(
             **cfg.loss.stft.params).to(device)
