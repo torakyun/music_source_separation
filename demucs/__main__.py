@@ -139,7 +139,10 @@ def main(cfg):
         print(model)
         size = sizeof_fmt(4 * sum(p.numel()
                                   for p in model["generator"].parameters()))
-        print(f"Model size {size}")
+        print(f"Generator size {size}")
+        size = sizeof_fmt(4 * sum(p.numel()
+                                  for p in model["discriminator"].parameters()))
+        print(f"Discriminator size {size}")
         return
 
     # get dataset
@@ -256,7 +259,7 @@ def main(cfg):
         criterion["feat_match"] = FeatureMatchLoss(
             **cfg.loss.feat_match.params).to(device)
     assert criterion
-    print(criterion)
+    # print(criterion)
 
     # define optimizers
     generator_optimizer_class = th.optim.Adam
