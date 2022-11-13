@@ -152,7 +152,7 @@ class Trainer(object):
             })
             if self.config.device.rank == 0:
                 self._check_eval_interval(epoch)
-                self._check_save_interval()
+                self._check_save_interval(epoch)
                 self._check_log_interval(epoch)
 
             # logging
@@ -860,7 +860,7 @@ class Trainer(object):
             mlflow.log_artifact(str(eval_folder / "sdr.json"))
         return model, stat
 
-    def _check_save_interval(self):
+    def _check_save_interval(self, epoch):
         # save to file
         log_folder = self.outdir / "logs"
         metrics_path = log_folder / f"{self.config.name}.json"
@@ -871,6 +871,11 @@ class Trainer(object):
         checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"
         self.save_checkpoint(checkpoint_tmp_path)
         checkpoint_tmp_path.rename(checkpoint_path)
+        # interval checkpoint
+        if epoch and self.config.save_interval and epoch % self.config.save_interval == 0:
+            checkpoint_path = checkpoint_folder / \
+                f"{self.config.name}_{epoch}.th"
+            self.save_checkpoint(checkpoint_path)
 
     def _check_eval_interval(self, epoch):
         if epoch % self.config.eval_interval == 0:

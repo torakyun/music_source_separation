@@ -26,6 +26,7 @@ save: false # Save estimated for the test set waveforms
 save_model: false # Skip traning, just save final model for the current checkpoint value.
 save_state: false # Skip training, just save state for the current checkpoint value. You should provide a model name as argument.
 half: false # When saving the model, uses half precision.
+save_interval:
 eval_interval: 10
 eval_second: 210
 out: "../out"
