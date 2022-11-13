@@ -738,7 +738,7 @@ class Trainer(object):
             track = torch.load(data_dir / data_file, map_location="cpu")
 
         """Evaluate model one epoch."""
-        eval_folder = self.outdir / "evals" / self.config.name
+        eval_folder = self.outdir / "evals" / f"{self.config.name}_{epoch}"
         eval_folder.mkdir(exist_ok=True, parents=True)
 
         estimates = apply_model(
@@ -878,7 +878,7 @@ class Trainer(object):
             self.save_checkpoint(checkpoint_path)
 
     def _check_eval_interval(self, epoch):
-        if epoch % self.config.eval_interval == 0:
+        if epoch and self.config.eval_interval and epoch % self.config.eval_interval == 0:
             # if epoch > 0 and self.metrics[-2]["best"] > self.metrics[-1]["best"]:
             self._eval_epoch(epoch)
 
