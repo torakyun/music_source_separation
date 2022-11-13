@@ -283,9 +283,9 @@ class Trainer(object):
                 elif j == 2:
                     im = self.axes[i, j].imshow(
                         d[i].cpu(), origin="lower", aspect="auto")
-            if xmax:
-                self.axes[i, j].set_xlim((0, xmax))
-            self.fig.colorbar(im, ax=self.axes[i, j])
+                if xmax:
+                    self.axes[i, j].set_xlim((0, xmax))
+                self.fig.colorbar(im, ax=self.axes[i, j])
         title = title.replace(" ", "_")
         path = Path(dir) / f"{title}.png"
         self.fig.savefig(path)
