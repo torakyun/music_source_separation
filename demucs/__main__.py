@@ -19,7 +19,7 @@ from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
 from .raw import Rawset
 from .repitch import RepitchedWrapper
-from .train import Trainer
+from .train import Trainer, show_names
 from .utils import (gpulife, save_model, get_state,
                     save_state, sizeof_fmt, get_quantizer)
 from .wav import get_wav_datasets, get_musdb_wav_datasets
@@ -39,21 +39,6 @@ import hydra
 
 def get_name():
     args = sys.argv[1:]
-    show_names = {
-        "pretrained": "pretrained",
-        "epochs": "epochs",
-        "dataset.samplerate": "sr",
-        "dataset.audio_channels": "ch",
-        "loss.l1.lambda": "l1",
-        "loss.mag.lambda": "mag",
-        "loss.stft.lambda": "stft",
-        "loss.mel.lambda": "mel",
-        "loss.adversarial.lambda": "adv",
-        "loss.feat_match.lambda": "fm",
-        "model/generator": "gen",
-        "model/discriminator": "dis",
-        "model.discriminator.separate": "sep",
-    }
     params = {}
     for arg in args:
         name, value = arg.split("=", 1)
