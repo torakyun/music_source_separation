@@ -816,14 +816,24 @@ class Trainer(object):
             estimates = apply_model(model, mix.to(self.device), shifts=self.config.dataset.shifts,
                                     split=self.config.split_valid, overlap=self.config.dataset.overlap)
             estimates = estimates * ref.std() + ref.mean()
-
-            estimates = estimates.transpose(1, 2)
             references = torch.stack(
                 [torch.from_numpy(track.targets[name].audio).t() for name in model.sources])
             references = convert_audio(
                 references, src_rate, model.samplerate, model.audio_channels)
-            references = references.transpose(1, 2).numpy()
-            estimates = estimates.cpu().numpy()
+
+            # save spectrogram
+            if track_indexes[index] == 1:
+                references = references.to(self.device)
+                second = self.config.dataset.samplerate * self.config.eval_second
+                self.log_and_save_spectrogram(
+                    references.mean(dim=1)[..., :second],
+                    estimates.mean(dim=1)[..., :second],
+                    eval_folder
+                )
+
+            references = references.transpose(1, 2).cpu().numpy()
+            estimates = estimates.transpose(1, 2).cpu().numpy()
+
             # save wav
             if track_indexes[index] == 1:
                 track_folder = eval_folder / track.name
