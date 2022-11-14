@@ -1,5 +1,0 @@
-defaults:
-  - dataset: colab
-  - device: default
-  - param: colab
-  - model/generator/demucs: colab
