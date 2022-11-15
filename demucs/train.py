@@ -617,8 +617,8 @@ class Trainer(object):
             streams = streams.to(self.device)
             sources = streams[1:]
             mix = streams[0]
-            estimates = apply_model(model, mix, shifts=0,
-                                    split=self.config.split_valid, overlap=self.config.dataset.overlap)
+            estimates = apply_model(
+                model, mix[None], split=self.config.split_valid, overlap=0)[0]
 
             # initialize
             gen_loss = 0.0
@@ -755,11 +755,11 @@ class Trainer(object):
 
         estimates = apply_model(
             self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"],
-            track["mix"].to(self.device),
-            shifts=self.config.dataset.shifts,
+            track["mix"][None].to(self.device),
+            shifts=self.config.shifts,
             split=self.config.split_valid,
-            overlap=self.config.dataset.overlap
-        )
+            overlap=self.config.overlap
+        )[0]
         estimates = estimates * track["std"] + track["mean"]
 
         # save spectrogram
@@ -825,8 +825,11 @@ class Trainer(object):
             mix = (mix - ref.mean()) / ref.std()
             mix = convert_audio(
                 mix, src_rate, model.samplerate, model.audio_channels)
-            estimates = apply_model(model, mix.to(self.device), shifts=self.config.dataset.shifts,
-                                    split=self.config.split_valid, overlap=self.config.dataset.overlap)
+            estimates = apply_model(
+                model, mix[None],
+                shifts=self.config.shifts,
+                split=self.config.split_valid,
+                overlap=self.config.overlap)[0]
             estimates = estimates * ref.std() + ref.mean()
             references = torch.stack(
                 [torch.from_numpy(track.targets[name].audio).t() for name in model.sources])

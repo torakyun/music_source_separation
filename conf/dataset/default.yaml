@@ -26,5 +26,3 @@ augment: true
 repitch: 0.2
 max_tempo: 12
 remix_group_size: 4
-shifts: 10
-overlap: 0.25
