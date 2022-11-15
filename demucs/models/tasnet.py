@@ -80,7 +80,7 @@ class ConvTasNet(nn.Module):
                  causal=False,
                  mask_nonlinear='relu',
                  samplerate=44100,
-                 sample_seconds=2):
+                 segment=4 * 2):
         """
         Args:
             sources: list of sources
@@ -105,7 +105,7 @@ class ConvTasNet(nn.Module):
         self.mask_nonlinear = mask_nonlinear
         self.audio_channels = audio_channels
         self.samplerate = samplerate
-        self.segment_length = 4 * sample_seconds * samplerate
+        self.segment = segment
         # Components
         self.encoder = Encoder(L, N, audio_channels)
         self.separator = TemporalConvNet(
@@ -115,9 +115,6 @@ class ConvTasNet(nn.Module):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_normal_(p)
-
-    def valid_length(self, length):
-        return length
 
     def forward(self, mixture):
         """

@@ -1,7 +1,8 @@
-name: Tasnet
+name: ConvTasNet
 params:
   X: 8
-sources: ${dataset.sources}
-audio_channels: ${dataset.audio_channels}
-samplerate: ${dataset.samplerate}
-sample_seconds: ${dataset.sample_seconds}
+  sources: ${dataset.sources}
+  audio_channels: ${dataset.audio_channels}
+  samplerate: ${dataset.samplerate}
+  segment: 8
+grad_norm: -1
