@@ -1,19 +1,37 @@
 name: Demucs
 params:
-  growth: 2.
-  depth: 6
-  lstm_layers: 2
+  # Channels
   channels: 64
+  growth: 2
+  # Main structure
+  depth: 6
+  rewrite: true
+  lstm_layers: 0
+  # Convolutions
   kernel_size: 8
   stride: 4
-  context: 3
-  rescale: 0.1
-  resample: true
+  context: 1
+  # Activations
+  gelu: true
   glu: true
-  rewrite: true
+  # Normalization
+  norm_groups: 4
+  norm_starts: 4
+  # DConv residual branch
+  dconv_depth: 2
+  dconv_mode: 1 # 1 = branch in encoder, 2 = in decoder, 3 = in both.
+  dconv_comp: 4
+  dconv_attn: 4
+  dconv_lstm: 4
+  dconv_init: 1e-4
+  # Pre/post treatment
+  resample: true
   normalize: false
+  # Weight init
+  rescale: 0.1
+  # Audio
   sources: ${dataset.sources}
   audio_channels: ${dataset.audio_channels}
   samplerate: ${dataset.samplerate}
-  sample_seconds: ${dataset.sample_seconds}
+  segment: 40
 grad_norm: -1
