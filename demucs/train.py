@@ -24,7 +24,8 @@ import mlflow
 from omegaconf import DictConfig, ListConfig
 
 from .audio import convert_audio
-from .utils import gpulife, human_seconds, apply_model, save_model, average_metric, center_trim
+from .apply import apply_model
+from .utils import gpulife, human_seconds, save_model, average_metric, center_trim
 
 import torch
 from torch import distributed
