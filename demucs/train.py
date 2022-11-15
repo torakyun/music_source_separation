@@ -827,6 +827,7 @@ class Trainer(object):
             track = test_set.tracks[track_indexes[index]]
 
             mix = torch.from_numpy(track.audio).t().float()
+            mix = mix.to(self.device)
             ref = mix.mean(dim=0)  # mono mixture
             mix = (mix - ref.mean()) / ref.std()
             mix = convert_audio(
