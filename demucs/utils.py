@@ -20,7 +20,7 @@ import subprocess
 import shlex
 
 from diffq import UniformQuantizer, DiffQuantizer
-import torch as th
+import torch
 import tqdm
 from torch import distributed
 from torch.nn import functional as F
@@ -82,7 +82,8 @@ def average_metric(metric, count=1.):
     Average `metric` which should be a float across all hosts. `count` should be
     the weight for this particular host (i.e. number of examples).
     """
-    metric = th.tensor([count, count * metric], dtype=th.float32, device='cuda')
+    metric = torch.tensor([count, count * metric],
+                          dtype=torch.float32, device='cuda')
     distributed.all_reduce(metric, op=distributed.ReduceOp.SUM)
     return metric[1].item() / metric[0].item()
 
@@ -282,7 +283,7 @@ def load_v2_model(path):
         load_from = path
         if str(path).endswith(".gz"):
             load_from = gzip.open(path, "rb")
-        klass, args, kwargs, state = th.load(load_from, 'cpu')
+        klass, args, kwargs, state = torch.load(load_from, 'cpu')
     model = klass(*args, **kwargs)
     model.load_state_dict(state)
     return model
@@ -292,7 +293,7 @@ def load_model(path, strict=False):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         load_from = path
-        package = th.load(load_from, 'cpu')
+        package = torch.load(load_from, 'cpu')
 
     klass = package["klass"]
     args = package["args"]
@@ -318,12 +319,12 @@ def load_model(path, strict=False):
 
 def get_state(model, quantizer, half=False):
     if quantizer is None:
-        dtype = th.half if half else None
         state = {k: p.data.to(device='cpu', dtype=dtype) for k, p in model.state_dict().items()}
+        dtype = torch.half if half else None
     else:
         state = quantizer.get_quantized_state()
         buf = io.BytesIO()
-        th.save(state, buf)
+        torch.save(state, buf)
         state = {'compressed': zlib.compress(buf.getvalue())}
     return state
 
@@ -333,7 +334,7 @@ def set_state(model, quantizer, state):
         model.load_state_dict(state)
     else:
         buf = io.BytesIO(zlib.decompress(state["compressed"]))
-        state = th.load(buf, "cpu")
+        state = torch.load(buf, "cpu")
         quantizer.restore_quantized_state(state)
 
     return state
@@ -341,7 +342,7 @@ def set_state(model, quantizer, state):
 
 def save_state(state, path):
     buf = io.BytesIO()
-    th.save(state, buf)
+    torch.save(state, buf)
     sig = hashlib.sha256(buf.getvalue()).hexdigest()[:8]
 
     path = path.parent / (path.stem + "-" + sig + path.suffix)
@@ -362,7 +363,7 @@ def save_model(model, quantizer, training_args, path):
         'state': state,
         'training_args': training_args,
     }
-    th.save(package, save_to)
+    torch.save(package, save_to)
 
 
 def capture_init(init):
