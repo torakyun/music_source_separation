@@ -280,28 +280,36 @@ class Trainer(object):
         targets = ["reference", "estimate", "difference"]
         # fig.suptitle(title, fontsize='xx-large')
         for i, source in enumerate(sources):
+            # set label
             for j, target in enumerate(targets):
                 # if i == 0:
                 #     axes[i, j].text(0.5, 1, target)
+                # axes[i, j].text(-0.1, 0.5, source)
                 self.axes[i, j].set_xlabel("frame")
                 self.axes[i, j].set_ylabel("freq_bin")
-                if j == 0:
-                    # axes[i, j].text(-0.1, 0.5, source)
-                    im = self.axes[i, j].imshow(
-                        r[i].cpu(), origin="lower", aspect="auto")
-                elif j == 1:
-                    im = self.axes[i, j].imshow(
-                        e[i].cpu(), origin="lower", aspect="auto")
-                elif j == 2:
-                    im = self.axes[i, j].imshow(
-                        d[i].cpu(), origin="lower", aspect="auto")
                 if xmax:
                     self.axes[i, j].set_xlim((0, xmax))
-                self.fig.colorbar(im, ax=self.axes[i, j])
+
+            # draw image
+            vmin = torch.min(torch.stack([r[i], e[i], d[i]]))
+            vmax = torch.max(torch.stack([r[i], e[i], d[i]]))
+            im = self.axes[i, 0].imshow(
+                r[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
+            im = self.axes[i, 1].imshow(
+                e[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
+            im = self.axes[i, 2].imshow(
+                d[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
+            self.fig.colorbar(im, ax=self.axes[i, 2])
+
+        # save figure
         title = title.replace(" ", "_")
         path = Path(dir) / f"{title}.png"
         self.fig.savefig(path)
         mlflow.log_figure(self.fig, f"figure/{title}.png")
+
+        # remove colorbar and clear axis
+        for i, _ in enumerate(sources):
+            self.axes[i, 2].images[-1].colorbar.remove()
         plt.cla()
 
     def log_and_save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
