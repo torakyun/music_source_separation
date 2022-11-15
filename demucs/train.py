@@ -438,8 +438,8 @@ class Trainer(object):
                         self.train_loss["train/l1_loss"] += l1_loss.item()
                         gen_loss += self.config.loss.l1["lambda"] * l1_loss
                         del l1_loss
-                    # gpulife("l1_loss")
                     # print("l1_loss: ", time.time() - start_t)
+                    # gpulife("l1_loss")
                     # start_t = time.time()
 
                     # multi-resolution magnitude loss
@@ -453,8 +453,8 @@ class Trainer(object):
                         gen_loss += self.config.loss.mag["lambda"] * (
                             mag_loss + log_mag_loss)
                         del mag_loss, log_mag_loss
-                    # gpulife("mag_loss")
                     # print("mag_loss: ", time.time() - start_t)
+                    # gpulife("mag_loss")
                     # start_t = time.time()
 
                     # multi-resolution sfft loss
@@ -468,8 +468,8 @@ class Trainer(object):
                         gen_loss += self.config.loss.stft["lambda"] * (
                             stft_loss + log_stft_loss)
                         del stft_loss, log_stft_loss
-                    # gpulife("stft_loss")
                     # print("stft_loss: ", time.time() - start_t)
+                    # gpulife("stft_loss")
                     # start_t = time.time()
 
                     # mel spectrogram loss
@@ -480,8 +480,8 @@ class Trainer(object):
                         self.train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
                         gen_loss += self.config.loss.mel["lambda"] * mel_loss
                         del mel_loss
-                    # gpulife("mel_loss")
                     # print("mel_loss: ", time.time() - start_t)
+                    # gpulife("mel_loss")
                     # start_t = time.time()
 
                     self.train_loss["train/gen_loss"] += gen_loss.item()
@@ -497,8 +497,8 @@ class Trainer(object):
                         self.train_loss["train/adversarial_loss"] += adv_loss.item()
                         gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
                         del adv_loss
-                        # gpulife("adv_loss")
                         # print("adv_loss: ", time.time() - start_t)
+                        # gpulife("adv_loss")
                         # start_t = time.time()
 
                         # feature matching loss
@@ -510,16 +510,16 @@ class Trainer(object):
                             self.train_loss["train/feature_matching_loss"] += fm_loss.item()
                             gen_loss += self.config.loss.feat_match["lambda"] * fm_loss
                             del p, fm_loss
-                            # gpulife("fm_loss")
                             # print("fm_loss: ", time.time() - start_t)
+                            # gpulife("fm_loss")
                             # start_t = time.time()
 
                         del p_
 
                     gen_loss.backward()
                     del gen_loss
-                    # gpulife("gen_loss.backward()")
                     # print("gen_loss.backward(): ", time.time() - start_t)
+                    # gpulife("gen_loss.backward()")
                     # start_t = time.time()
 
                     #######################
@@ -540,8 +540,8 @@ class Trainer(object):
                             self.train_loss["train/fake_loss"]
                         (real_loss + fake_loss).backward()
                         del real_loss, fake_loss
-                        # gpulife("dis_backward()")
                         # print("dis_backward()", time.time() - start_t)
+                        # gpulife("dis_backward()")
                         # start_t = time.time()
 
                     del estimates
@@ -569,8 +569,8 @@ class Trainer(object):
                 g_grad_norm = g_grad_norm**0.5
                 self.optimizer["generator"].step()
                 self.optimizer["generator"].zero_grad()
-                # gpulife("gen_optimized")
                 # print("gen_opt: ", time.time() - start_t)
+                gpulife("gen_optimized")
                 # start_t = time.time()
 
                 # update discriminator
@@ -587,8 +587,8 @@ class Trainer(object):
                     d_grad_norm = d_grad_norm**0.5
                     self.optimizer["discriminator"].step()
                     self.optimizer["discriminator"].zero_grad()
-                    # gpulife("dis_opt")
                     # print("dis_opt", time.time() - start_t)
+                    # gpulife("dis_opt")
                     # start_t = time.time()
 
                 current_loss = self.train_loss["train/gen_loss"] / (
