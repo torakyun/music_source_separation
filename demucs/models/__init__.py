@@ -1,4 +1,5 @@
 from .demucs import *  # NOQA
+from .hdemucs import *  # NOQA
 from .demucs_v2 import *  # NOQA
 from .tasnet import *  # NOQA
 
