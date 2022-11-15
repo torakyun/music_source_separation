@@ -570,7 +570,7 @@ class Trainer(object):
                 self.optimizer["generator"].step()
                 self.optimizer["generator"].zero_grad()
                 # print("gen_opt: ", time.time() - start_t)
-                gpulife("gen_optimized")
+                # gpulife("gen_optimized")
                 # start_t = time.time()
 
                 # update discriminator
