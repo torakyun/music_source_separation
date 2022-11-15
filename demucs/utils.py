@@ -278,7 +278,7 @@ def get_quantizer(model, args, optimizer=None):
             quantizer.setup_optimizer(optimizer)
     elif args.qat:
         quantizer = UniformQuantizer(
-                model, bits=args.qat, min_size=args.q_min_size)
+            model, bits=args.qat, min_size=args.q_min_size)
     return quantizer
 
 
