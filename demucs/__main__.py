@@ -137,45 +137,36 @@ def main(cfg):
     # Setting number of samples so that all convolution windows are full.
     # Prevents hard to debug mistake with the prediction being shifted compared
     # to the input mixture.
-    samples = model["generator"].valid_length(
-        cfg.dataset.sample_seconds * cfg.dataset.samplerate)
+    samples = cfg.dataset.segment * cfg.dataset.samplerate
     print(f"Number of training samples adjusted to {samples}")
-    samples += cfg.dataset.stride_seconds * cfg.dataset.samplerate
-    if cfg.dataset.repitch:
-        # We need a bit more audio samples, to account for potential
-        # tempo change.
-        samples = math.ceil(samples / (1 - 0.01 * cfg.dataset.max_tempo))
 
     metadata_folder = Path(cfg.dataset.musdb.metadata)
     metadata_folder.mkdir(exist_ok=True, parents=True)
     if cfg.dataset.raw.path:
         raw_path = Path(cfg.dataset.raw.path)
         train_set = Rawset(raw_path / "train",
-                           samples=samples,
+                           samples=cfg.dataset.segment * cfg.dataset.samplerate,
                            channels=cfg.dataset.audio_channels,
                            streams=range(
                                1, len(model["generator"].sources) + 1),
-                           stride=cfg.dataset.stride_seconds * cfg.dataset.samplerate)
+                           stride=cfg.dataset.shift * cfg.dataset.samplerate)
 
         valid_set = Rawset(raw_path / "valid",
                            channels=cfg.dataset.audio_channels)
     elif cfg.dataset.wav.path:
-        train_set, valid_set = get_wav_datasets(
-            cfg, samples, model["generator"].sources)
+        train_set, valid_set = get_wav_datasets(cfg)
 
         if cfg.dataset.wav.concat:
             if cfg.dataset.musdb.is_wav:
-                mus_train, mus_valid = get_musdb_wav_datasets(
-                    cfg, samples, model.sources)
+                mus_train, mus_valid = get_musdb_wav_datasets(cfg)
             else:
-                mus_train, mus_valid = get_compressed_datasets(cfg, samples)
+                mus_train, mus_valid = get_compressed_datasets(cfg)
             train_set = ConcatDataset([train_set, mus_train])
             valid_set = ConcatDataset([valid_set, mus_valid])
     elif cfg.dataset.musdb.is_wav:
-        train_set, valid_set = get_musdb_wav_datasets(
-            cfg, samples, model["generator"].sources)
+        train_set, valid_set = get_musdb_wav_datasets(cfg)
     else:
-        train_set, valid_set = get_compressed_datasets(cfg, samples)
+        train_set, valid_set = get_compressed_datasets(cfg)
     print("Train set and valid set sizes", len(train_set), len(valid_set))
 
     if cfg.dataset.repitch:
@@ -219,7 +210,7 @@ def main(cfg):
     }
 
     # define augments
-    augment = [Shift(cfg.dataset.stride_seconds * cfg.dataset.samplerate)]
+    augment = [Shift(cfg.dataset.shift * cfg.dataset.samplerate)]
     if cfg.dataset.augment:
         augment += [FlipSign(), FlipChannels(), Scale(),
                     Remix(group_size=cfg.dataset.remix_group_size)]

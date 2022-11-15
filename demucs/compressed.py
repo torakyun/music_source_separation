@@ -93,18 +93,17 @@ def _build_musdb_metadata(path, musdb, workers):
     json.dump(metadata, open(path, "w"))
 
 
-def get_compressed_datasets(cfg, samples):
+def get_compressed_datasets(cfg):
     metadata_file = Path(cfg.out) / cfg.dataset.musdb.metadata / "musdb.json"
     if not metadata_file.is_file() and cfg.device.rank == 0:
         _build_musdb_metadata(metadata_file, cfg.dataset.musdb.path, cfg.device.workers)
     if cfg.device.world_size > 1:
         distributed.barrier()
     metadata = json.load(open(metadata_file))
-    duration = Fraction(samples, cfg.dataset.samplerate)
     train_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="train"),
                          metadata,
-                         duration=duration,
-                         stride=cfg.dataset.stride_seconds,
+                         duration=cfg.dataset.segment,
+                         stride=cfg.dataset.shift,
                          streams=slice(1, None),
                          samplerate=cfg.dataset.samplerate,
                          channels=cfg.dataset.audio_channels)

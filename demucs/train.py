@@ -415,8 +415,6 @@ class Trainer(object):
                     # start_t = time.time()
                     estimates = self.model["generator"](
                         mix[start::self.config.batch_divide])
-                    if start == 0:
-                        sources = center_trim(sources, estimates)
                     # gpulife("gen_forward")
                     # print("gen_forward: ", time.time() - start_t)
                     # start_t = time.time()
