@@ -34,9 +34,6 @@ from distutils.version import LooseVersion
 is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
 
 
-ignore_params = ["restart", "split_valid", "show", "save", "save_model", "save_state", "half", "eval_interval", "eval_second", "eval_epoch_path", "out",
-                 "q-min-size", "qat", "diffq", "ms_target", "mlflow", "device", "name",  "model.generator.params", "model.discriminator.params", "loss.mag.params", "loss.stft.params", "loss.adversarial.generator_params", "loss.adversarial.discriminator_params"]
-
 show_names = {
     "pretrained": "pretrained",
     "epochs": "epochs",
@@ -268,8 +265,6 @@ class Trainer(object):
             self._explore_recursive(param_name, element)
 
     def _explore_recursive(self, parent_name, element):
-        # if parent_name in ignore_params:
-        #     return
         if isinstance(element, DictConfig):
             for k, v in element.items():
                 self._explore_recursive(f'{parent_name}.{k}', v)
