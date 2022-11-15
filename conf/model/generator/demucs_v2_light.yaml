@@ -1,4 +1,4 @@
-name: Demucs
+name: DemucsV2
 params:
   growth: 2.
   depth: 6
@@ -15,5 +15,5 @@ params:
   sources: ${dataset.sources}
   audio_channels: ${dataset.audio_channels}
   samplerate: ${dataset.samplerate}
-  sample_seconds: ${dataset.sample_seconds}
+  segment: 40
 grad_norm: -1

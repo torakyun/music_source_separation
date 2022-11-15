@@ -2,7 +2,7 @@ defaults:
   - _self_
   - device: default
   - dataset: default
-  - model/generator: demucs
+  - model/generator: demucs_v2
   - model/discriminator: parallel_wavegan
   - loss: default
   - override hydra/sweeper: optuna

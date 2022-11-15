@@ -1,0 +1,19 @@
+name: DemucsV2
+params:
+  growth: 2.
+  depth: 6
+  lstm_layers: 2
+  channels: 64
+  kernel_size: 8
+  stride: 4
+  context: 3
+  rescale: 0.1
+  resample: true
+  glu: true
+  rewrite: true
+  normalize: false
+  sources: ${dataset.sources}
+  audio_channels: ${dataset.audio_channels}
+  samplerate: ${dataset.samplerate}
+  segment: 40
+grad_norm: -1
