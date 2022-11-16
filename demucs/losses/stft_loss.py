@@ -57,7 +57,7 @@ class SpectralConvergenceLoss(torch.nn.Module):
         """
         dif_stft = x_stft - y_stft
         dif_mag = torch.sqrt(torch.clamp(
-            dif_stft[..., 0]**2 + dif_stft[..., 0]**2, min=1e-7))
+            dif_stft[..., 0]**2 + dif_stft[..., 1]**2, min=1e-7))
         return torch.norm(dif_mag, p="fro") / torch.norm(y_mag, p="fro")
 
 
@@ -85,8 +85,8 @@ class LogSTFTLoss(torch.nn.Module):
         y_log_stft = y_stft * (torch.log(y_mag) / y_mag).unsqueeze(-1)
         dif_log_stft = x_log_stft - y_log_stft
         dif_mag = torch.sqrt(torch.clamp(
-            dif_log_stft[..., 0]**2 + dif_log_stft[..., 0]**2, min=1e-7))
-        return torch.mean(torch.norm(dif_mag, p=1, keepdim=True))
+            dif_log_stft[..., 0]**2 + dif_log_stft[..., 1]**2, min=1e-7))
+        return torch.mean(dif_mag)
 
 
 class STFTLoss(torch.nn.Module):
