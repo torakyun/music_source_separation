@@ -43,6 +43,7 @@ show_names = {
     "loss.mag.lambda": "mag",
     "loss.stft.lambda": "stft",
     "loss.mel.lambda": "mel",
+    "loss.mfcc.lambda": "mfcc",
     "loss.adversarial.lambda": "adv",
     "loss.feat_match.lambda": "fm",
     "model/generator": "gen",
@@ -484,6 +485,18 @@ class Trainer(object):
                     # gpulife("mel_loss")
                     # start_t = time.time()
 
+                    # mfcc loss
+                    if self.config.loss.mfcc["lambda"]:
+                        mfcc_loss = self.criterion["mfcc"](
+                            estimates, sources[start::self.config.batch_divide])
+                        mfcc_loss /= self.config.batch_divide
+                        self.train_loss["train/mfcc_loss"] += mfcc_loss.item()
+                        gen_loss += self.config.loss.mfcc["lambda"] * mfcc_loss
+                        del mfcc_loss
+                    # print("mfcc_loss: ", time.time() - start_t)
+                    # gpulife("mfcc_loss")
+                    # start_t = time.time()
+
                     self.train_loss["train/gen_loss"] += gen_loss.item()
 
                     # adversarial loss
@@ -674,6 +687,16 @@ class Trainer(object):
                 mel_loss = total_mel_loss / (index + 1)
                 self.valid_loss["valid/mel_spectrogram_loss"] += mel_loss
                 gen_loss += self.config.loss.mel["lambda"] * mel_loss
+
+            # mfcc loss
+            if self.config.loss.mfcc["lambda"]:
+                total_mfcc_loss = 0
+                for index in range(sources.size(0)):
+                    total_mfcc_loss += self.criterion["mfcc"](
+                        estimates[index], sources[index]).item()
+                mfcc_loss = total_mfcc_loss / (index + 1)
+                self.valid_loss["valid/mfcc_loss"] += mfcc_loss
+                gen_loss += self.config.loss.mfcc["lambda"] * mfcc_loss
 
             self.valid_loss["valid/gen_loss"] += gen_loss
 

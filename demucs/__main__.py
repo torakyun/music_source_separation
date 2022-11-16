@@ -30,6 +30,7 @@ from .losses import DiscriminatorAdversarialLoss
 from .losses import FeatureMatchLoss
 from .losses import GeneratorAdversarialLoss
 from .losses import MelSpectrogramLoss
+from .losses import MFCCLoss
 from .losses import MultiResolutionMagnitudeLoss
 from .losses import MultiResolutionSTFTLoss
 
@@ -231,6 +232,8 @@ def main(cfg):
             **cfg.loss.stft.params).to(device)
     if cfg.loss.mel["lambda"]:
         criterion["mel"] = MelSpectrogramLoss(**cfg.loss.mel.params).to(device)
+    if cfg.loss.mfcc["lambda"]:
+        criterion["mfcc"] = MFCCLoss(**cfg.loss.mfcc.params).to(device)
     if cfg.loss.adversarial["lambda"]:
         criterion["gen_adv"] = GeneratorAdversarialLoss(
             **cfg.loss.adversarial.generator_params).to(device)
