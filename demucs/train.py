@@ -731,7 +731,9 @@ class Trainer(object):
         for name in self.config.dataset.sources:
             data_file += f"_{name}"
         data_file += ".th"
-        if epoch == 0:
+        if (data_dir / data_file).is_file():
+            track = torch.load(data_dir / data_file, map_location="cpu")
+        else:
             test_set = musdb.DB(
                 self.config.dataset.musdb.path, subsets=["test"])
             from_samplerate = 44100
