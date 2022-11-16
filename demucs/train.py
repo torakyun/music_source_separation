@@ -777,8 +777,6 @@ class Trainer(object):
                 "targets": references
             }
             torch.save(track, data_dir / data_file)
-        else:
-            track = torch.load(data_dir / data_file, map_location="cpu")
 
         """Evaluate model one epoch."""
         eval_folder = self.outdir / "evals" / f"{self.config.name}_{epoch}"
