@@ -631,7 +631,7 @@ class Trainer(object):
                 postfix = {
                     "loss": f"{current_loss:.4f}",
                     # "ms": f"{model_size:.2f}",
-                    "grad": f"{g_grad_norm:.5f}",
+                    "grad": f"{g_grad_norm:.4f}",
                 }
                 current_real_loss, current_fake_loss = 0, 0
                 if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
@@ -639,8 +639,8 @@ class Trainer(object):
                         1 + idx)
                     current_fake_loss = self.train_loss["train/fake_loss"] / (
                         1 + idx)
-                    postfix["real"] = current_real_loss
-                    postfix["fake"] = current_fake_loss
+                    postfix["real"] = f"{current_real_loss:.4f}"
+                    postfix["fake"] = f"{current_fake_loss:.4f}"
                 tq.set_postfix(**postfix)
 
             for k, v in self.train_loss.items():
