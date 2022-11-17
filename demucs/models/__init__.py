@@ -72,9 +72,10 @@ class Discriminators(torch.nn.Module):
 
         """
         output = []
+        sources, channels, time = x.size(-3), x.size(-2), x.size(-1)
+        x = x.view(-1, sources, channels, time)
         for i, f in enumerate(self.discriminators):
             if not self.separate:
-                sources, channels, time = x.size(-3), x.size(-2), x.size(-1)
                 output.append(f(x.view(-1, sources * channels, time)))
             elif self.separate == "sources":
                 output.append(f(x[:, i, ...]))
