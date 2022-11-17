@@ -115,13 +115,19 @@ class Trainer(object):
         # checkpoint log
         best_loss = float("inf")
         for epoch, metrics in enumerate(self.metrics):
-            print(f"Epoch {epoch:03d}: "
-                  f"train={metrics['train']:.8f} "
-                  f"valid={metrics['valid']:.8f} "
-                  f"best={metrics['best']:.4f} "
-                  f"ms={metrics.get('true_model_size', 0):.2f}MB "
-                  f"cms={metrics.get('compressed_model_size', 0):.2f}MB "
-                  f"duration={human_seconds(metrics['duration'])}")
+            logging = [
+                f"Epoch {epoch:03d}: ",
+                f"train={metrics['train']:.4f} ",
+                f"valid={metrics['valid']:.4f} ",
+                f"best={metrics['best']:.4f} ",
+                # f"ms={metrics.get('true_model_size', 0):.2f}MB ",
+                # f"cms={metrics.get('compressed_model_size', 0):.2f}MB ",
+                f"duration={human_seconds(metrics['duration'])}"]
+            if metrics['real']:
+                logging += [
+                    f"real={metrics['real']:.4f} ",
+                    f"fake={metrics['fake']:.4f} "]
+            print("".join(logging))
             best_loss = metrics['best']
 
         for epoch in range(len(self.metrics), self.config.epochs):
@@ -129,7 +135,8 @@ class Trainer(object):
 
             # train and valid
             self.model["generator"].train()
-            train_loss, model_size = self._train_epoch(epoch)
+            train_loss, real_loss, fake_loss, model_size = self._train_epoch(
+                epoch)
             self.model["generator"].eval()
             valid_loss = self._valid_epoch(epoch)
 
@@ -164,6 +171,8 @@ class Trainer(object):
                 "model_size": model_size,
                 "true_model_size": ms,
                 "compressed_model_size": cms,
+                "real": real_loss,
+                "fake": fake_loss,
             })
             if self.config.device.rank == 0:
                 self._check_eval_interval(epoch)
@@ -171,10 +180,19 @@ class Trainer(object):
                 self._check_log_interval(epoch)
 
             # logging
-            print(f"Epoch {epoch:03d}: "
-                  f"train={train_loss:.8f} valid={valid_loss:.8f} best={best_loss:.4f} ms={ms:.2f}MB "
-                  f"cms={cms:.2f}MB "
-                  f"duration={human_seconds(duration)}")
+            logging = [
+                f"Epoch {epoch:03d}: ",
+                f"train={train_loss:.4f} ",
+                f"valid={valid_loss:.4f} ",
+                f"best={best_loss:.4f} ",
+                # f"ms={ms:.2f}MB ",
+                # f"cms={cms:.2f}MB ",
+                f"duration={human_seconds(duration)} "]
+            if real_loss:
+                logging += [
+                    f"real={real_loss:.4f} ",
+                    f"fake={fake_loss:.4f} "]
+            print("".join(logging))
 
         # evaluate and save best model
         if self.config.device.world_size > 1:
@@ -497,7 +515,8 @@ class Trainer(object):
                     # gpulife("mfcc_loss")
                     # start_t = time.time()
 
-                    self.train_loss["train/gen_loss"] += gen_loss.item()
+                    self.train_loss["train/gen_loss"] += gen_loss.item(
+                    ) if isinstance(gen_loss, torch.Tensor) else gen_loss
 
                     # adversarial loss
                     if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
@@ -606,8 +625,20 @@ class Trainer(object):
 
                 current_loss = self.train_loss["train/gen_loss"] / (
                     1 + idx)
-                tq.set_postfix(loss=f"{current_loss:.4f}", ms=f"{model_size:.2f}",
-                               grad=f"{g_grad_norm:.5f}")
+                postfix = {
+                    "loss": f"{current_loss:.4f}",
+                    # "ms": f"{model_size:.2f}",
+                    "grad": f"{g_grad_norm:.5f}",
+                }
+                current_real_loss, current_fake_loss = 0, 0
+                if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                    current_real_loss = self.train_loss["train/real_loss"] / (
+                        1 + idx)
+                    current_fake_loss = self.train_loss["train/fake_loss"] / (
+                        1 + idx)
+                    postfix["real"] = current_real_loss
+                    postfix["fake"] = current_fake_loss
+                tq.set_postfix(**postfix)
 
             for k, v in self.train_loss.items():
                 self.train_loss[k] = v / (1 + idx)
@@ -617,7 +648,7 @@ class Trainer(object):
 
         if self.config.device.world_size > 1:
             current_loss = average_metric(current_loss)
-        return current_loss, model_size
+        return current_loss, current_real_loss, current_fake_loss, model_size
 
     @torch.no_grad()
     def _valid_epoch(self, epoch):
