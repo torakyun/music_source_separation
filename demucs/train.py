@@ -310,14 +310,17 @@ class Trainer(object):
                     self.axes[i, j].set_xlim((0, xmax))
 
             # draw image
-            vmin = torch.min(torch.stack([r[i], e[i], d[i]]))
+            min = torch.min(torch.stack([r[i], e[i]]))
+            if min < 0:
+                r[i] = torch.clamp(r[i], min=min) - min
+                e[i] = torch.clamp(e[i], min=min) - min
             vmax = torch.max(torch.stack([r[i], e[i], d[i]]))
-            im = self.axes[i, 0].imshow(
-                r[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
-            im = self.axes[i, 1].imshow(
-                e[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
+            self.axes[i, 0].imshow(
+                r[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
+            self.axes[i, 1].imshow(
+                e[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
             im = self.axes[i, 2].imshow(
-                d[i].cpu(), origin="lower", aspect="auto", vmin=vmin, vmax=vmax)
+                d[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
             self.fig.colorbar(im, ax=self.axes[i, 2])
 
         # save figure
@@ -382,8 +385,8 @@ class Trainer(object):
         del differences_mag
 
         # Log-scale Magnitude spectrogram
-        references_log_mag = torch.log(references_mag)
-        estimates_log_mag = torch.log(estimates_mag)
+        references_log_mag = torch.clamp(torch.log(references_mag), min=1e-7)
+        estimates_log_mag = torch.clamp(torch.log(estimates_mag), min=1e-7)
         differences_log_mag = (references_log_mag - estimates_log_mag).abs()
         self.write_figure(
             "Log-Scale Magnitude Spectrogram", references_log_mag, estimates_log_mag, differences_log_mag, dir)
@@ -402,8 +405,8 @@ class Trainer(object):
         del melmat, differences_mel
 
         # Log-scale Mel spectrogram
-        references_log_mel = torch.log(references_mel)
-        estimates_log_mel = torch.log(estimates_mel)
+        references_log_mel = torch.clamp(torch.log(references_mel), min=1e-7)
+        estimates_log_mel = torch.clamp(torch.log(estimates_mel), min=1e-7)
         differences_log_mel = (references_log_mel - estimates_log_mel).abs()
         self.write_figure(
             "Log-Scale Mel Spectrogram", references_log_mel, estimates_log_mel, differences_log_mel, dir)
