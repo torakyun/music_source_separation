@@ -96,6 +96,7 @@ class Trainer(object):
         self.train_loss = defaultdict(float)
         self.valid_loss = defaultdict(float)
         self.eval_loss = defaultdict(float)
+        self.pretrained_epoch = 0
         self.fig = plt.figure(constrained_layout=True, figsize=(20, 15))
         self.axes = self.fig.subplots(
             nrows=len(self.config.dataset.sources), ncols=3, sharex=False)
@@ -414,9 +415,10 @@ class Trainer(object):
     def _train_epoch(self, epoch):
         """Train model one epoch."""
         if self.config.device.world_size > 1:
-            sampler_epoch = epoch * self.config.repeat
             if self.config.seed is not None:
                 sampler_epoch += self.config.seed * 1000
+            sampler_epoch = (self.pretrained_epoch + epoch) * \
+                self.config.repeat
             self.sampler["train"].set_epoch(sampler_epoch)
         for repetition in range(self.config.repeat):
             tq = tqdm(self.data_loader["train"],

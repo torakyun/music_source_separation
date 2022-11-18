@@ -274,6 +274,11 @@ def main(cfg):
         if cfg.pretrained:
             trainer.load_checkpoint(
                 checkpoint_folder / (cfg.pretrained + ".th"), load_only_params=True)
+            if cfg.device.world_size > 1:
+                import re
+                epoch = re.findall(r"epochs-(\d+)", cfg.pretrained)
+                epoch = sum([int(e) for e in epoch])
+                trainer.pretrained_epoch = epoch
             print("load pretrained")
         else:
             print("model init")
