@@ -1,13 +1,9 @@
 # dataset
-raw:
-  path:
-musdb:
-  path: "../musdb18"
-  is_wav: false
-  metadata: "../metadata"
+musdbhq: "../musdb18hq"
+musdb: "../musdb18"
 wav:
-  path:
-  concat: true
+
+metadata: "../metadata"
 
 # audio params
 sources:
@@ -19,7 +15,9 @@ samplerate: 44100
 audio_channels: 2
 segment: 11
 shift: 1
-norm_wav: true
+normalize: true
+full_cv: true
+train_valid: false
 
 # augument
 augment: true

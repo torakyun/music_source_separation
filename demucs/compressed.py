@@ -6,7 +6,6 @@
 
 import json
 from pathlib import Path
-from fractions import Fraction
 from concurrent import futures
 
 import musdb
@@ -94,20 +93,20 @@ def _build_musdb_metadata(path, musdb, workers):
 
 
 def get_compressed_datasets(cfg):
-    metadata_file = Path(cfg.out) / cfg.dataset.musdb.metadata / "musdb.json"
+    metadata_file = Path(cfg.dataset.metadata) / "musdb.json"
     if not metadata_file.is_file() and cfg.device.rank == 0:
-        _build_musdb_metadata(metadata_file, cfg.dataset.musdb.path, cfg.device.workers)
+        _build_musdb_metadata(metadata_file, cfg.dataset.musdb, cfg.device.workers)
     if cfg.device.world_size > 1:
         distributed.barrier()
     metadata = json.load(open(metadata_file))
-    train_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="train"),
+    train_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb, subsets=["train"], split="train"),
                          metadata,
                          duration=cfg.dataset.segment,
                          stride=cfg.dataset.shift,
                          streams=slice(1, None),
                          samplerate=cfg.dataset.samplerate,
                          channels=cfg.dataset.audio_channels)
-    valid_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb.path, subsets=["train"], split="valid"),
+    valid_set = StemsSet(get_musdb_tracks(cfg.dataset.musdb, subsets=["train"], split="valid"),
                          metadata,
                          samplerate=cfg.dataset.samplerate,
                          channels=cfg.dataset.audio_channels)

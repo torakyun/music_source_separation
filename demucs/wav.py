@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 import tqdm
 
+import musdb
 import julius
 import torch as th
 from torch import distributed
@@ -20,7 +21,6 @@ import torchaudio as ta
 from torch.nn import functional as F
 
 from .audio import convert_audio_channels
-from .compressed import get_musdb_tracks
 
 MIXTURE = "mixture"
 EXT = ".wav"
@@ -102,7 +102,6 @@ class Wavset:
         Waveset (or mp3 set for that matter). Can be used to train
         with arbitrary sources. Each track should be one folder inside of `path`.
         The folder should contain files named `{source}.{ext}`.
-
         Args:
             root (Path or str): root folder for the dataset.
             metadata (dict): output from `build_metadata`.
@@ -116,7 +115,6 @@ class Wavset:
             channels (int): target nb of channels. if different, will be
                 changed onthe fly.
             ext (str): extension for audio files (default is .wav).
-
         samplerate and channels are converted on the fly.
         """
         self.root = Path(root)
@@ -176,50 +174,71 @@ class Wavset:
 
 
 def get_wav_datasets(cfg):
-    sig = hashlib.sha1(str(cfg.dataset.wav.path).encode()).hexdigest()[:8]
-    metadata_file = Path(cfg.outdir.out) / \
-        cfg.dataset.musdb.metadata / (sig + ".json")
-    train_path = cfg.dataset.wav.path / "train"
-    valid_path = cfg.dataset.wav.path / "valid"
+    """Extract the wav datasets from the config."""
+    sig = hashlib.sha1(str(cfg.dataset.wav).encode()).hexdigest()[:8]
+    metadata_file = Path(cfg.dataset.metadata) / ("wav_" + sig + ".json")
+    train_path = Path(cfg.dataset.wav) / "train"
+    valid_path = Path(cfg.dataset.wav) / "valid"
     if not metadata_file.is_file() and cfg.device.rank == 0:
+        metadata_file.parent.mkdir(exist_ok=True, parents=True)
         train = _build_metadata(train_path, cfg.dataset.sources)
         valid = _build_metadata(valid_path, cfg.dataset.sources)
         json.dump([train, valid], open(metadata_file, "w"))
     if cfg.device.world_size > 1:
         distributed.barrier()
     train, valid = json.load(open(metadata_file))
+    if cfg.dataset.full_cv:
+        kw_cv = {}
+    else:
+        kw_cv = {'segment': cfg.dataset.segment, 'shift': cfg.dataset.shift}
     train_set = Wavset(train_path, train, cfg.dataset.sources,
                        segment=cfg.dataset.segment, stride=cfg.dataset.shift,
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
-                       normalize=cfg.dataset.norm_wav)
-    valid_set = Wavset(valid_path, valid, [MIXTURE] + cfg.dataset.sources,
+                       normalize=cfg.dataset.normalize)
+    valid_set = Wavset(valid_path, valid, [MIXTURE] + list(cfg.dataset.sources),
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
-                       normalize=cfg.dataset.norm_wav)
+                       normalize=cfg.dataset.normalize, **kw_cv)
     return train_set, valid_set
 
 
+def _get_musdb_valid():
+    # Return musdb valid set.
+    import yaml
+    setup_path = Path(musdb.__path__[0]) / 'configs' / 'mus.yaml'
+    setup = yaml.safe_load(open(setup_path, 'r'))
+    return setup['validation_tracks']
+
+
 def get_musdb_wav_datasets(cfg):
-    metadata_file = Path(cfg.outdir.out) / \
-        cfg.dataset.musdb.metadata / "musdb_wav.json"
-    root = cfg.dataset.musdb.path / "train"
+    """Extract the musdb dataset from the config."""
+    sig = hashlib.sha1(str(cfg.dataset.musdbhq).encode()).hexdigest()[:8]
+    metadata_file = Path(cfg.dataset.metadata) / ("musdb_" + sig + ".json")
+    root = Path(cfg.dataset.musdbhq) / "train"
     if not metadata_file.is_file() and cfg.device.rank == 0:
+        metadata_file.parent.mkdir(exist_ok=True, parents=True)
         metadata = _build_metadata(root, cfg.dataset.sources)
         json.dump(metadata, open(metadata_file, "w"))
     if cfg.device.world_size > 1:
         distributed.barrier()
     metadata = json.load(open(metadata_file))
 
-    train_tracks = get_musdb_tracks(cfg.dataset.musdb.path, is_wav=True,
-                                    subsets=["train"], split="train")
-    metadata_train = {name: meta for name,
-                      meta in metadata.items() if name in train_tracks}
+    valid_tracks = _get_musdb_valid()
+    if cfg.dataset.train_valid:
+        metadata_train = metadata
+    else:
+        metadata_train = {name: meta for name,
+                          meta in metadata.items() if name not in valid_tracks}
     metadata_valid = {name: meta for name,
-                      meta in metadata.items() if name not in train_tracks}
+                      meta in metadata.items() if name in valid_tracks}
+    if cfg.dataset.full_cv:
+        kw_cv = {}
+    else:
+        kw_cv = {'segment': cfg.dataset.segment, 'shift': cfg.dataset.shift}
     train_set = Wavset(root, metadata_train, cfg.dataset.sources,
-                       segment=cfg.dataset.segment, stride=cfg.dataset.shift,
+                       segment=cfg.dataset.segment, shift=cfg.dataset.shift,
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
-                       normalize=cfg.dataset.norm_wav)
-    valid_set = Wavset(root, metadata_valid, [MIXTURE] + cfg.dataset.sources,
+                       normalize=cfg.dataset.normalize)
+    valid_set = Wavset(root, metadata_valid, [MIXTURE] + list(cfg.dataset.sources),
                        samplerate=cfg.dataset.samplerate, channels=cfg.dataset.audio_channels,
-                       normalize=cfg.dataset.norm_wav)
+                       normalize=cfg.dataset.normalize, **kw_cv)
     return train_set, valid_set

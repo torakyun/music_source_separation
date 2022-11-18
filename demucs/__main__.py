@@ -17,7 +17,6 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 
 from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
-from .raw import Rawset
 from .repitch import RepitchedWrapper
 from .train import Trainer, show_names
 from .utils import (gpulife, save_model, get_state,
@@ -61,9 +60,9 @@ def main(cfg):
         cfg.name = name
     print(f"Experiment {name}")
 
-    if cfg.dataset.musdb.path is None and cfg.device.rank == 0:
+    if cfg.dataset.musdb is None and cfg.dataset.musdbhq is None and cfg.device.rank == 0:
         print(
-            "You must provide the path to the MusDB dataset with the --musdb flag. "
+            "You must provide the path to the MusDB dataset. "
             "To download the MusDB dataset, see https://sigsep.github.io/datasets/musdb.html.",
             file=sys.stderr)
         sys.exit(1)
@@ -141,33 +140,14 @@ def main(cfg):
     samples = cfg.dataset.segment * cfg.dataset.samplerate
     print(f"Number of training samples adjusted to {samples}")
 
-    metadata_folder = Path(cfg.dataset.musdb.metadata)
-    metadata_folder.mkdir(exist_ok=True, parents=True)
-    if cfg.dataset.raw.path:
-        raw_path = Path(cfg.dataset.raw.path)
-        train_set = Rawset(raw_path / "train",
-                           samples=cfg.dataset.segment * cfg.dataset.samplerate,
-                           channels=cfg.dataset.audio_channels,
-                           streams=range(
-                               1, len(model["generator"].sources) + 1),
-                           stride=cfg.dataset.shift * cfg.dataset.samplerate)
-
-        valid_set = Rawset(raw_path / "valid",
-                           channels=cfg.dataset.audio_channels)
-    elif cfg.dataset.wav.path:
-        train_set, valid_set = get_wav_datasets(cfg)
-
-        if cfg.dataset.wav.concat:
-            if cfg.dataset.musdb.is_wav:
-                mus_train, mus_valid = get_musdb_wav_datasets(cfg)
-            else:
-                mus_train, mus_valid = get_compressed_datasets(cfg)
-            train_set = ConcatDataset([train_set, mus_train])
-            valid_set = ConcatDataset([valid_set, mus_valid])
-    elif cfg.dataset.musdb.is_wav:
+    if cfg.dataset.musdbhq:
         train_set, valid_set = get_musdb_wav_datasets(cfg)
-    else:
+    elif cfg.dataset.musdb:
         train_set, valid_set = get_compressed_datasets(cfg)
+    if cfg.dataset.wav:
+        extra_train_set, extra_valid_set = get_wav_datasets(cfg)
+        train_set = ConcatDataset([train_set, extra_train_set])
+        valid_set = ConcatDataset([valid_set, extra_valid_set])
     print("Train set and valid set sizes", len(train_set), len(valid_set))
 
     if cfg.dataset.repitch:
