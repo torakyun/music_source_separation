@@ -417,239 +417,234 @@ class Trainer(object):
         if self.config.device.world_size > 1:
             if self.config.seed is not None:
                 sampler_epoch += self.config.seed * 1000
-            sampler_epoch = (self.pretrained_epoch + epoch) * \
-                self.config.repeat
+            sampler_epoch = self.pretrained_epoch + epoch
             self.sampler["train"].set_epoch(sampler_epoch)
-        for repetition in range(self.config.repeat):
-            tq = tqdm(self.data_loader["train"],
-                      ncols=120,
-                      desc=f"[{epoch:03d}] train ({repetition + 1}/{self.config.repeat})",
-                      leave=False,
-                      file=sys.stdout,
-                      unit=" batch")
-            # reset
-            self.train_loss = defaultdict(float)
-            for idx, sources in enumerate(tq):
-                # if idx > 0:
-                #     break
-                if len(sources) < self.config.batch_size // self.config.device.world_size:
-                    # skip uncomplete batch for augment.Remix to work properly
-                    continue
-                sources = sources.to(self.device)
-                sources = self.augment(sources)
-                mix = sources.sum(dim=1)
+        tq = tqdm(self.data_loader["train"],
+                  ncols=120,
+                  desc=f"[{epoch:03d}] train",
+                  leave=False,
+                  file=sys.stdout,
+                  unit=" batch")
+        # reset
+        self.train_loss = defaultdict(float)
+        for idx, sources in enumerate(tq):
+            # if idx > 0:
+            #     break
+            if len(sources) < self.config.batch_size // self.config.device.world_size:
+                # skip uncomplete batch for augment.Remix to work properly
+                continue
+            sources = sources.to(self.device)
+            sources = self.augment(sources)
+            mix = sources.sum(dim=1)
 
-                for start in range(self.config.batch_divide):
-                    #######################
-                    #      Generator      #
-                    #######################
-                    # gpulife("start")
-                    # start_t = time.time()
-                    estimates = self.model["generator"](
-                        mix[start::self.config.batch_divide])
-                    # gpulife("gen_forward")
-                    # print("gen_forward: ", time.time() - start_t)
-                    # start_t = time.time()
-
-                    # initialize
-                    gen_loss = 0.0
-
-                    # l1 loss
-                    if self.config.loss.l1["lambda"]:
-                        l1_loss = self.criterion["l1"](
-                            estimates, sources[start::self.config.batch_divide])
-                        l1_loss /= self.config.batch_divide
-                        self.train_loss["train/l1_loss"] += l1_loss.item()
-                        gen_loss += self.config.loss.l1["lambda"] * l1_loss
-                        del l1_loss
-                    # print("l1_loss: ", time.time() - start_t)
-                    # gpulife("l1_loss")
-                    # start_t = time.time()
-
-                    # multi-resolution magnitude loss
-                    if self.config.loss.mag["lambda"]:
-                        mag_loss, log_mag_loss = self.criterion["mag"](
-                            estimates, sources[start::self.config.batch_divide])
-                        mag_loss /= self.config.batch_divide
-                        log_mag_loss /= self.config.batch_divide
-                        self.train_loss["train/magnitude_spectrogram_loss"] += mag_loss.item()
-                        self.train_loss["train/log_magnitude_spectrogram_loss"] += log_mag_loss.item()
-                        gen_loss += self.config.loss.mag["lambda"] * (
-                            mag_loss + log_mag_loss)
-                        del mag_loss, log_mag_loss
-                    # print("mag_loss: ", time.time() - start_t)
-                    # gpulife("mag_loss")
-                    # start_t = time.time()
-
-                    # multi-resolution sfft loss
-                    if self.config.loss.stft["lambda"]:
-                        stft_loss, log_stft_loss = self.criterion["stft"](
-                            estimates, sources[start::self.config.batch_divide])
-                        stft_loss /= self.config.batch_divide
-                        log_stft_loss /= self.config.batch_divide
-                        self.train_loss["train/stft_loss"] += stft_loss.item()
-                        self.train_loss["train/log_stft_loss"] += log_stft_loss.item()
-                        gen_loss += self.config.loss.stft["lambda"] * (
-                            stft_loss + log_stft_loss)
-                        del stft_loss, log_stft_loss
-                    # print("stft_loss: ", time.time() - start_t)
-                    # gpulife("stft_loss")
-                    # start_t = time.time()
-
-                    # mel spectrogram loss
-                    if self.config.loss.mel["lambda"]:
-                        mel_loss = self.criterion["mel"](
-                            estimates, sources[start::self.config.batch_divide])
-                        mel_loss /= self.config.batch_divide
-                        self.train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
-                        gen_loss += self.config.loss.mel["lambda"] * mel_loss
-                        del mel_loss
-                    # print("mel_loss: ", time.time() - start_t)
-                    # gpulife("mel_loss")
-                    # start_t = time.time()
-
-                    # mfcc loss
-                    if self.config.loss.mfcc["lambda"]:
-                        mfcc_loss = self.criterion["mfcc"](
-                            estimates, sources[start::self.config.batch_divide])
-                        mfcc_loss /= self.config.batch_divide
-                        self.train_loss["train/mfcc_loss"] += mfcc_loss.item()
-                        gen_loss += self.config.loss.mfcc["lambda"] * mfcc_loss
-                        del mfcc_loss
-                    # print("mfcc_loss: ", time.time() - start_t)
-                    # gpulife("mfcc_loss")
-                    # start_t = time.time()
-
-                    self.train_loss["train/gen_loss"] += gen_loss.item(
-                    ) if isinstance(gen_loss, torch.Tensor) else gen_loss
-
-                    # adversarial loss
-                    if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
-                        # no need to track gradients
-                        self.set_requires_grad(
-                            self.model["discriminator"], False)
-                        p_ = self.model["discriminator"](estimates)
-                        adv_loss = self.criterion["gen_adv"](p_)
-                        adv_loss /= self.config.batch_divide
-                        self.train_loss["train/adversarial_loss"] += adv_loss.item()
-                        gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
-                        del adv_loss
-                        # print("adv_loss: ", time.time() - start_t)
-                        # gpulife("adv_loss")
-                        # start_t = time.time()
-
-                        # feature matching loss
-                        if self.config.loss.feat_match["lambda"]:
-                            p = self.model["discriminator"](
-                                sources[start::self.config.batch_divide])
-                            fm_loss = self.criterion["feat_match"](p_, p)
-                            fm_loss /= self.config.batch_divide
-                            self.train_loss["train/feature_matching_loss"] += fm_loss.item()
-                            gen_loss += self.config.loss.feat_match["lambda"] * fm_loss
-                            del p, fm_loss
-                            # print("fm_loss: ", time.time() - start_t)
-                            # gpulife("fm_loss")
-                            # start_t = time.time()
-
-                        del p_
-
-                    gen_loss.backward()
-                    del gen_loss
-                    # print("gen_loss.backward(): ", time.time() - start_t)
-                    # gpulife("gen_loss.backward()")
-                    # start_t = time.time()
-
-                    #######################
-                    #    Discriminator    #
-                    #######################
-                    if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
-                        # discriminator loss
-                        self.set_requires_grad(
-                            self.model["discriminator"], True)
-                        real_loss, fake_loss = self.criterion["dis_adv"](
-                            self.model["discriminator"](estimates.detach()),
-                            self.model["discriminator"](sources[start::self.config.batch_divide]))
-                        real_loss /= self.config.batch_divide
-                        fake_loss /= self.config.batch_divide
-                        self.train_loss["train/real_loss"] += real_loss.item()
-                        self.train_loss["train/fake_loss"] += fake_loss.item()
-                        self.train_loss["train/discriminator_loss"] = self.train_loss["train/real_loss"] + \
-                            self.train_loss["train/fake_loss"]
-                        (real_loss + fake_loss).backward()
-                        del real_loss, fake_loss
-                        # print("dis_backward()", time.time() - start_t)
-                        # gpulife("dis_backward()")
-                        # start_t = time.time()
-
-                    del estimates
-
-                # free some space before next round
-                del sources, mix
-
-                # model size loss
-                model_size = 0
-                if self.quantizer is not None:
-                    model_size = self.quantizer.model_size()
-                    (self.config.diffq * model_size).backward()
-                    model_size = model_size.item()
-
-                # update generator
-                g_grad_norm = 0
-                if self.config.model.generator.grad_norm > 0:
-                    torch.nn.utils.clip_grad_norm_(
-                        self.model["generator"].parameters(),
-                        self.config.model.generator.grad_norm,
-                    )
-                for p in self.model["generator"].parameters():
-                    if p.grad is not None:
-                        g_grad_norm += p.grad.data.norm()**2
-                g_grad_norm = g_grad_norm**0.5
-                self.optimizer["generator"].step()
-                self.optimizer["generator"].zero_grad()
-                # print("gen_opt: ", time.time() - start_t)
-                # gpulife("gen_optimized")
+            for start in range(self.config.batch_divide):
+                #######################
+                #      Generator      #
+                #######################
+                # gpulife("start")
+                # start_t = time.time()
+                estimates = self.model["generator"](
+                    mix[start::self.config.batch_divide])
+                # gpulife("gen_forward")
+                # print("gen_forward: ", time.time() - start_t)
                 # start_t = time.time()
 
-                # update discriminator
+                # initialize
+                gen_loss = 0.0
+
+                # l1 loss
+                if self.config.loss.l1["lambda"]:
+                    l1_loss = self.criterion["l1"](
+                        estimates, sources[start::self.config.batch_divide])
+                    l1_loss /= self.config.batch_divide
+                    self.train_loss["train/l1_loss"] += l1_loss.item()
+                    gen_loss += self.config.loss.l1["lambda"] * l1_loss
+                    del l1_loss
+                # print("l1_loss: ", time.time() - start_t)
+                # gpulife("l1_loss")
+                # start_t = time.time()
+
+                # multi-resolution magnitude loss
+                if self.config.loss.mag["lambda"]:
+                    mag_loss, log_mag_loss = self.criterion["mag"](
+                        estimates, sources[start::self.config.batch_divide])
+                    mag_loss /= self.config.batch_divide
+                    log_mag_loss /= self.config.batch_divide
+                    self.train_loss["train/magnitude_spectrogram_loss"] += mag_loss.item()
+                    self.train_loss["train/log_magnitude_spectrogram_loss"] += log_mag_loss.item()
+                    gen_loss += self.config.loss.mag["lambda"] * (
+                        mag_loss + log_mag_loss)
+                    del mag_loss, log_mag_loss
+                # print("mag_loss: ", time.time() - start_t)
+                # gpulife("mag_loss")
+                # start_t = time.time()
+
+                # multi-resolution sfft loss
+                if self.config.loss.stft["lambda"]:
+                    stft_loss, log_stft_loss = self.criterion["stft"](
+                        estimates, sources[start::self.config.batch_divide])
+                    stft_loss /= self.config.batch_divide
+                    log_stft_loss /= self.config.batch_divide
+                    self.train_loss["train/stft_loss"] += stft_loss.item()
+                    self.train_loss["train/log_stft_loss"] += log_stft_loss.item()
+                    gen_loss += self.config.loss.stft["lambda"] * (
+                        stft_loss + log_stft_loss)
+                    del stft_loss, log_stft_loss
+                # print("stft_loss: ", time.time() - start_t)
+                # gpulife("stft_loss")
+                # start_t = time.time()
+
+                # mel spectrogram loss
+                if self.config.loss.mel["lambda"]:
+                    mel_loss = self.criterion["mel"](
+                        estimates, sources[start::self.config.batch_divide])
+                    mel_loss /= self.config.batch_divide
+                    self.train_loss["train/mel_spectrogram_loss"] += mel_loss.item()
+                    gen_loss += self.config.loss.mel["lambda"] * mel_loss
+                    del mel_loss
+                # print("mel_loss: ", time.time() - start_t)
+                # gpulife("mel_loss")
+                # start_t = time.time()
+
+                # mfcc loss
+                if self.config.loss.mfcc["lambda"]:
+                    mfcc_loss = self.criterion["mfcc"](
+                        estimates, sources[start::self.config.batch_divide])
+                    mfcc_loss /= self.config.batch_divide
+                    self.train_loss["train/mfcc_loss"] += mfcc_loss.item()
+                    gen_loss += self.config.loss.mfcc["lambda"] * mfcc_loss
+                    del mfcc_loss
+                # print("mfcc_loss: ", time.time() - start_t)
+                # gpulife("mfcc_loss")
+                # start_t = time.time()
+
+                self.train_loss["train/gen_loss"] += gen_loss.item(
+                ) if isinstance(gen_loss, torch.Tensor) else gen_loss
+
+                # adversarial loss
                 if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
-                    d_grad_norm = 0
-                    if self.config.model.discriminator.grad_norm > 0:
-                        torch.nn.utils.clip_grad_norm_(
-                            self.model["discriminator"].parameters(),
-                            self.config.model.discriminator.grad_norm,
-                        )
-                    for p in self.model["discriminator"].parameters():
-                        if p.grad is not None:
-                            d_grad_norm += p.grad.data.norm()**2
-                    d_grad_norm = d_grad_norm**0.5
-                    self.optimizer["discriminator"].step()
-                    self.optimizer["discriminator"].zero_grad()
-                    # print("dis_opt", time.time() - start_t)
-                    # gpulife("dis_opt")
+                    # no need to track gradients
+                    self.set_requires_grad(
+                        self.model["discriminator"], False)
+                    p_ = self.model["discriminator"](estimates)
+                    adv_loss = self.criterion["gen_adv"](p_)
+                    adv_loss /= self.config.batch_divide
+                    self.train_loss["train/adversarial_loss"] += adv_loss.item()
+                    gen_loss += self.config.loss.adversarial["lambda"] * adv_loss
+                    del adv_loss
+                    # print("adv_loss: ", time.time() - start_t)
+                    # gpulife("adv_loss")
                     # start_t = time.time()
 
-                current_loss = self.train_loss["train/gen_loss"] / (
-                    1 + idx)
-                postfix = {
-                    "loss": f"{current_loss:.4f}",
-                    # "ms": f"{model_size:.2f}",
-                    "grad": f"{g_grad_norm:.4f}",
-                }
-                current_real_loss, current_fake_loss = 0, 0
+                    # feature matching loss
+                    if self.config.loss.feat_match["lambda"]:
+                        p = self.model["discriminator"](
+                            sources[start::self.config.batch_divide])
+                        fm_loss = self.criterion["feat_match"](p_, p)
+                        fm_loss /= self.config.batch_divide
+                        self.train_loss["train/feature_matching_loss"] += fm_loss.item()
+                        gen_loss += self.config.loss.feat_match["lambda"] * fm_loss
+                        del p, fm_loss
+                        # print("fm_loss: ", time.time() - start_t)
+                        # gpulife("fm_loss")
+                        # start_t = time.time()
+
+                    del p_
+
+                gen_loss.backward()
+                del gen_loss
+                # print("gen_loss.backward(): ", time.time() - start_t)
+                # gpulife("gen_loss.backward()")
+                # start_t = time.time()
+
+                #######################
+                #    Discriminator    #
+                #######################
                 if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
-                    current_real_loss = self.train_loss["train/real_loss"] / (
-                        1 + idx)
-                    current_fake_loss = self.train_loss["train/fake_loss"] / (
-                        1 + idx)
-                    postfix["real"] = f"{current_real_loss:.4f}"
-                    postfix["fake"] = f"{current_fake_loss:.4f}"
-                tq.set_postfix(**postfix)
+                    # discriminator loss
+                    self.set_requires_grad(
+                        self.model["discriminator"], True)
+                    real_loss, fake_loss = self.criterion["dis_adv"](
+                        self.model["discriminator"](estimates.detach()),
+                        self.model["discriminator"](sources[start::self.config.batch_divide]))
+                    real_loss /= self.config.batch_divide
+                    fake_loss /= self.config.batch_divide
+                    self.train_loss["train/real_loss"] += real_loss.item()
+                    self.train_loss["train/fake_loss"] += fake_loss.item()
+                    self.train_loss["train/discriminator_loss"] = self.train_loss["train/real_loss"] + \
+                        self.train_loss["train/fake_loss"]
+                    (real_loss + fake_loss).backward()
+                    del real_loss, fake_loss
+                    # print("dis_backward()", time.time() - start_t)
+                    # gpulife("dis_backward()")
+                    # start_t = time.time()
 
-            for k, v in self.train_loss.items():
-                self.train_loss[k] = v / (1 + idx)
+                del estimates
 
-            if self.config.device.world_size > 1:
-                self.sampler["train"].epoch += 1
+            # free some space before next round
+            del sources, mix
+
+            # model size loss
+            model_size = 0
+            if self.quantizer is not None:
+                model_size = self.quantizer.model_size()
+                (self.config.diffq * model_size).backward()
+                model_size = model_size.item()
+
+            # update generator
+            g_grad_norm = 0
+            if self.config.model.generator.grad_norm > 0:
+                torch.nn.utils.clip_grad_norm_(
+                    self.model["generator"].parameters(),
+                    self.config.model.generator.grad_norm,
+                )
+            for p in self.model["generator"].parameters():
+                if p.grad is not None:
+                    g_grad_norm += p.grad.data.norm()**2
+            g_grad_norm = g_grad_norm**0.5
+            self.optimizer["generator"].step()
+            self.optimizer["generator"].zero_grad()
+            # print("gen_opt: ", time.time() - start_t)
+            # gpulife("gen_optimized")
+            # start_t = time.time()
+
+            # update discriminator
+            if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                d_grad_norm = 0
+                if self.config.model.discriminator.grad_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model["discriminator"].parameters(),
+                        self.config.model.discriminator.grad_norm,
+                    )
+                for p in self.model["discriminator"].parameters():
+                    if p.grad is not None:
+                        d_grad_norm += p.grad.data.norm()**2
+                d_grad_norm = d_grad_norm**0.5
+                self.optimizer["discriminator"].step()
+                self.optimizer["discriminator"].zero_grad()
+                # print("dis_opt", time.time() - start_t)
+                # gpulife("dis_opt")
+                # start_t = time.time()
+
+            current_loss = self.train_loss["train/gen_loss"] / (
+                1 + idx)
+            postfix = {
+                "loss": f"{current_loss:.4f}",
+                # "ms": f"{model_size:.2f}",
+                "grad": f"{g_grad_norm:.4f}",
+            }
+            current_real_loss, current_fake_loss = 0, 0
+            if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
+                current_real_loss = self.train_loss["train/real_loss"] / (
+                    1 + idx)
+                current_fake_loss = self.train_loss["train/fake_loss"] / (
+                    1 + idx)
+                postfix["real"] = f"{current_real_loss:.4f}"
+                postfix["fake"] = f"{current_fake_loss:.4f}"
+            tq.set_postfix(**postfix)
+
+        for k, v in self.train_loss.items():
+            self.train_loss[k] = v / (1 + idx)
 
         if self.config.device.world_size > 1:
             current_loss = average_metric(current_loss)

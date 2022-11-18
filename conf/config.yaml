@@ -11,8 +11,7 @@ defaults:
 # Training option
 restart: false
 seed: 42
-epochs: 180
-repeat: 2
+epochs: 360
 batch_size: 64
 batch_divide: 1
 lr: 0.0003
