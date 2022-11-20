@@ -5,25 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 import errno
-import functools
-import hashlib
-import inspect
-import io
 import os
 import random
 import socket
 import tempfile
-import warnings
-import zlib
 from contextlib import contextmanager
 import subprocess
 import shlex
 import typing as tp
 import math
 
-from diffq import UniformQuantizer, DiffQuantizer
 import torch
-import tqdm
 from torch import distributed
 from torch.nn import functional as F
 
@@ -167,115 +159,3 @@ def temp_filenames(count, delete=True):
         if delete:
             for name in names:
                 os.unlink(name)
-
-
-def get_quantizer(model, args, optimizer=None):
-    quantizer = None
-    if args.diffq:
-        quantizer = DiffQuantizer(
-            model, min_size=args.q_min_size, group_size=8)
-        if optimizer is not None:
-            quantizer.setup_optimizer(optimizer)
-    elif args.qat:
-        quantizer = UniformQuantizer(
-            model, bits=args.qat, min_size=args.q_min_size)
-    return quantizer
-
-
-def load_v2_model(path):
-    import gzip
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        load_from = path
-        if str(path).endswith(".gz"):
-            load_from = gzip.open(path, "rb")
-        klass, args, kwargs, state = torch.load(load_from, 'cpu')
-    model = klass(*args, **kwargs)
-    model.load_state_dict(state)
-    return model
-
-
-def load_model(path, strict=False):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        load_from = path
-        package = torch.load(load_from, 'cpu')
-
-    klass = package["klass"]
-    args = package["args"]
-    kwargs = package["kwargs"]
-
-    if strict:
-        model = klass(*args, **kwargs)
-    else:
-        sig = inspect.signature(klass)
-        for key in list(kwargs):
-            if key not in sig.parameters:
-                warnings.warn("Dropping inexistant parameter " + key)
-                del kwargs[key]
-        model = klass(*args, **kwargs)
-
-    state = package["state"]
-    training_args = package["training_args"]
-    quantizer = get_quantizer(model, training_args)
-
-    set_state(model, quantizer, state)
-    return model
-
-
-def get_state(model, quantizer, half=False):
-    if quantizer is None:
-        state = {k: p.data.to(device='cpu', dtype=dtype) for k, p in model.state_dict().items()}
-        dtype = torch.half if half else None
-    else:
-        state = quantizer.get_quantized_state()
-        buf = io.BytesIO()
-        torch.save(state, buf)
-        state = {'compressed': zlib.compress(buf.getvalue())}
-    return state
-
-
-def set_state(model, quantizer, state):
-    if quantizer is None:
-        model.load_state_dict(state)
-    else:
-        buf = io.BytesIO(zlib.decompress(state["compressed"]))
-        state = torch.load(buf, "cpu")
-        quantizer.restore_quantized_state(state)
-
-    return state
-
-
-def save_state(state, path):
-    buf = io.BytesIO()
-    torch.save(state, buf)
-    sig = hashlib.sha256(buf.getvalue()).hexdigest()[:8]
-
-    path = path.parent / (path.stem + "-" + sig + path.suffix)
-    path.write_bytes(buf.getvalue())
-
-
-def save_model(model, quantizer, training_args, path):
-    args, kwargs = model._init_args_kwargs
-    klass = model.__class__
-
-    state = get_state(model, quantizer, half=training_args.half)
-
-    save_to = path
-    package = {
-        'klass': klass,
-        'args': args,
-        'kwargs': kwargs,
-        'state': state,
-        'training_args': training_args,
-    }
-    torch.save(package, save_to)
-
-
-def capture_init(init):
-    @functools.wraps(init)
-    def __init__(self, *args, **kwargs):
-        self._init_args_kwargs = (args, kwargs)
-        init(self, *args, **kwargs)
-
-    return __init__

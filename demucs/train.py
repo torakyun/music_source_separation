@@ -25,7 +25,8 @@ from omegaconf import DictConfig, ListConfig
 
 from .audio import convert_audio
 from .apply import apply_model
-from .utils import gpulife, human_seconds, save_model, average_metric, center_trim
+from .states import save_model
+from .utils import gpulife, human_seconds, average_metric
 
 import torch
 from torch import distributed

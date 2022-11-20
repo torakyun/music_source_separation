@@ -11,7 +11,7 @@ from diffq import DiffQuantizer
 import torch.hub
 
 from .models import *
-from .utils import set_state
+from .states import set_state
 
 logger = logging.getLogger(__name__)
 ROOT = "https://dl.fbaipublicfiles.com/demucs/v3.0/"

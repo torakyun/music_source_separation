@@ -33,9 +33,10 @@ eval_second: 210
 out: "../out"
 
 # Quantization options
-q-min-size: 1 # Only quantize layers over this size (in MB)
+min_size: 1 # Only quantize layers over this size (in MB)
 qat: # If provided, use QAT training with that many bits.
 diffq: 0
+group_size: 8
 ms_target: 162 # Model size target in MB, when using DiffQ. Best model will be kept only if it is smaller than this target.
 
 # hydra + optuna

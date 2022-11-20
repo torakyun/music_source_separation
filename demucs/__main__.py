@@ -18,9 +18,9 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 from .augment import FlipChannels, FlipSign, Remix, Scale, Shift
 from .compressed import get_compressed_datasets
 from .repitch import RepitchedWrapper
+from .states import get_quantizer, get_state, save_state, save_model
 from .train import Trainer, show_names
-from .utils import (gpulife, save_model, get_state,
-                    save_state, sizeof_fmt, get_quantizer)
+from .utils import gpulife, sizeof_fmt
 from .wav import get_wav_datasets, get_musdb_wav_datasets
 
 from . import models
