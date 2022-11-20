@@ -782,15 +782,22 @@ class Trainer(object):
         # make eval track1
         data_dir = self.outdir / "eval_data"
         data_dir.mkdir(exist_ok=True, parents=True)
-        data_file = f"{self.config.dataset.samplerate}_{self.config.dataset.audio_channels}"
+        if self.config.dataset.musdbhq:
+            data_file = "musdbhq"
+            path = self.config.dataset.musdbhq
+            is_wav = True
+        else:
+            data_file = "musdb"
+            path = self.config.dataset.musdb
+            is_wav = False
+        data_file += f"_{self.config.dataset.samplerate}_{self.config.dataset.audio_channels}"
         for name in self.config.dataset.sources:
             data_file += f"_{name}"
         data_file += ".th"
         if (data_dir / data_file).is_file():
             track = torch.load(data_dir / data_file, map_location="cpu")
         else:
-            test_set = musdb.DB(
-                self.config.dataset.musdb.path, subsets=["test"])
+            test_set = musdb.DB(path, subsets=["test"], is_wav=is_wav)
             from_samplerate = 44100
             track = test_set.tracks[1]
             mix = torch.from_numpy(track.audio).t().float()
@@ -866,8 +873,13 @@ class Trainer(object):
         eval_folder.mkdir(exist_ok=True, parents=True)
 
         # we load tracks from the original musdb set
-        test_set = musdb.DB(self.config.dataset.musdb.path, subsets=[
-                            "test"], is_wav=self.config.dataset.musdb.is_wav)
+        if self.config.dataset.musdbhq:
+            path = self.config.dataset.musdbhq
+            is_wav = True
+        else:
+            path = self.config.dataset.musdb
+            is_wav = False
+        test_set = musdb.DB(path, subsets=["test"], is_wav=is_wav)
         track_indexes = list(range(len(test_set)))
         src_rate = 44100  # hardcoded for now...
         all_metrics = defaultdict(list)
