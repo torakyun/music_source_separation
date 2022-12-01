@@ -126,7 +126,7 @@ class Trainer(object):
                 f"best={metrics['best']:.4f} ",
                 # f"ms={metrics.get('true_model_size', 0):.2f}MB ",
                 # f"cms={metrics.get('compressed_model_size', 0):.2f}MB ",
-                f"duration={human_seconds(metrics['duration'])}"]
+                f"duration={human_seconds(metrics['duration'])} "]
             if metrics['real']:
                 logging += [
                     f"real={metrics['real']:.4f} ",
