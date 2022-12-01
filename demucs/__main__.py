@@ -24,6 +24,7 @@ from .utils import gpulife, sizeof_fmt
 from .wav import get_wav_datasets, get_musdb_wav_datasets
 
 from . import models
+from . import optimizers
 
 from .losses import DiscriminatorAdversarialLoss
 from .losses import FeatureMatchLoss
@@ -226,18 +227,24 @@ def main(cfg):
     # print(criterion)
 
     # define optimizers
-    generator_optimizer_class = th.optim.Adam
+    generator_optimizer_class = getattr(
+        optimizers,
+        cfg.optimizer.generator.name,
+    )
     optimizer = {
         "generator": generator_optimizer_class(
             model["generator"].parameters(),
-            lr=cfg.lr,
+            **cfg.optimizer.generator.params,
         ),
     }
     if cfg.loss.adversarial["lambda"]:
-        discriminator_optimizer_class = th.optim.Adam
+        discriminator_optimizer_class = getattr(
+            optimizers,
+            cfg.optimizer.discriminator.name,
+        )
         optimizer["discriminator"] = discriminator_optimizer_class(
             model["discriminator"].parameters(),
-            lr=cfg.lr,
+            **cfg.optimizer.discriminator.params,
         )
 
     # define quantizer

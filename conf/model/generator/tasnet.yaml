@@ -5,4 +5,3 @@ params:
   audio_channels: ${dataset.audio_channels}
   samplerate: ${dataset.samplerate}
   segment: 8
-grad_norm: -1

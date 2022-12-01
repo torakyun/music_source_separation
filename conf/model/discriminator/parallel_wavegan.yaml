@@ -1,15 +1,15 @@
 name: ParallelWaveGANDiscriminator
 params:
-  in_channels: 1        # Number of input channels.
-  out_channels: 1       # Number of output channels.
-  kernel_size: 3        # Number of output channels.
-  layers: 10            # Number of conv layers.
-  conv_channels: 64     # Number of chnn layers.
-  bias: true            # Whether to use bias parameter in conv.
-  use_weight_norm: true # Whether to use weight norm.
-                        # If set to true, it will be applied to all of the conv layers.
+  in_channels: 1 # Number of input channels.
+  out_channels: 1 # Number of output channels.
+  kernel_size: 3 # Number of output channels.
+  layers: 10 # Number of conv layers.
+  conv_channels: 64 # Number of chnn layers.
+  bias: true # Whether to use bias parameter in conv.
+  use_weight_norm:
+    true # Whether to use weight norm.
+    # If set to true, it will be applied to all of the conv layers.
   nonlinear_activation: "LeakyReLU" # Nonlinear function after each conv.
-  nonlinear_activation_params:      # Nonlinear function parameters
-      negative_slope: 0.2           # Alpha in LeakyReLU.
+  nonlinear_activation_params: # Nonlinear function parameters
+    negative_slope: 0.2 # Alpha in LeakyReLU.
 separate: "full"
-grad_norm: -1

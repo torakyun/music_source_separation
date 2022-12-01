@@ -4,6 +4,8 @@ defaults:
   - dataset: default
   - model/generator: demucs_v2
   - model/discriminator: parallel_wavegan
+  - optimizer/generator: default
+  - optimizer/discriminator: default
   - loss: default
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
@@ -14,7 +16,6 @@ seed: 42
 epochs: 360
 batch_size: 64
 batch_divide: 1
-lr: 0.0003
 shifts: 1
 split_valid: true
 overlap: 0.25

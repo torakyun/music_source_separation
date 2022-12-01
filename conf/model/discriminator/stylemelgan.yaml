@@ -19,4 +19,3 @@ params:
       negative_slope: 0.2
   use_weight_norm: True
 separate: "full"
-grad_norm: -1

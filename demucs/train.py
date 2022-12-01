@@ -47,6 +47,8 @@ show_names = {
     "loss.mfcc.lambda": "mfcc",
     "loss.adversarial.lambda": "adv",
     "loss.feat_match.lambda": "fm",
+    "optimizer/generator": "g_opt",
+    "optimizer/discriminator": "d_opt",
     "model/generator": "gen",
     "model/discriminator": "dis",
     "model.discriminator.separate": "sep",
@@ -594,10 +596,10 @@ class Trainer(object):
 
             # update generator
             g_grad_norm = 0
-            if self.config.model.generator.grad_norm > 0:
+            if self.config.optimizer.generator.grad_norm > 0:
                 torch.nn.utils.clip_grad_norm_(
                     self.model["generator"].parameters(),
-                    self.config.model.generator.grad_norm,
+                    self.config.optimizer.generator.grad_norm,
                 )
             for p in self.model["generator"].parameters():
                 if p.grad is not None:
@@ -612,10 +614,10 @@ class Trainer(object):
             # update discriminator
             if self.config.loss.adversarial["lambda"] and epoch > self.config.loss.adversarial.train_start_epoch:
                 d_grad_norm = 0
-                if self.config.model.discriminator.grad_norm > 0:
+                if self.config.optimizer.discriminator.grad_norm > 0:
                     torch.nn.utils.clip_grad_norm_(
                         self.model["discriminator"].parameters(),
-                        self.config.model.discriminator.grad_norm,
+                        self.config.optimizer.discriminator.grad_norm,
                     )
                 for p in self.model["discriminator"].parameters():
                     if p.grad is not None:

@@ -34,4 +34,3 @@ params:
     use_weight_norm: true # Whether to apply weight normalization.
     use_spectral_norm: false # Whether to apply spectral normalization.
 separate: "full"
-grad_norm: -1
