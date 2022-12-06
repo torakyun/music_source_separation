@@ -298,7 +298,7 @@ class Trainer(object):
             if parent_name in show_names.keys():
                 mlflow.log_param(show_names[parent_name], element)
 
-    def write_figure(self, title, r, e, d, dir, xmax=None):
+    def write_figure(self, title, r, e, d, dir, xmax=None, vmax=None):
         sources = ["drums", "bass", "other", "vocals"]
         targets = ["reference", "estimate", "difference"]
         # fig.suptitle(title, fontsize='xx-large')
@@ -318,20 +318,21 @@ class Trainer(object):
             if min < 0:
                 r[i] = torch.clamp(r[i], min=min) - min
                 e[i] = torch.clamp(e[i], min=min) - min
-            vmax = torch.max(torch.stack([r[i], e[i], d[i]])).item()
+            if not vmax:
+                vmax = torch.max(torch.stack([r[i], e[i], d[i]])).item()
             self.axes[i, 0].imshow(
-                r[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
+                r[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             self.axes[i, 1].imshow(
-                e[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
+                e[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             im = self.axes[i, 2].imshow(
-                d[i].cpu(), origin="lower", aspect="auto", vmin=0, vmax=vmax)
+                d[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             self.fig.colorbar(im, ax=self.axes[i, 2])
 
         # save figure
         title = title.replace(" ", "_")
         path = Path(dir) / f"{title}.png"
         self.fig.savefig(path)
-        mlflow.log_figure(self.fig, f"figure/{title}.png")
+        # mlflow.log_figure(self.fig, f"figure/{title}.png")
 
         # remove colorbar and clear axis
         for i, _ in enumerate(sources):
@@ -385,7 +386,7 @@ class Trainer(object):
         # Magnitude spectrogram
         differences_mag = (references_mag - estimates_mag).abs()
         self.write_figure(
-            "Magnitude Spectrogram", references_mag, estimates_mag, differences_mag, dir)
+            "Magnitude Spectrogram", references_mag, estimates_mag, differences_mag, dir, vmax=5)
         del differences_mag
 
         # Log-scale Magnitude spectrogram
