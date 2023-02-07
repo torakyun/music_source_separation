@@ -11,7 +11,8 @@
 また，音声の一部に雑音が生じてしまうことがあり，
 これらの要素が 人間の知覚評価を下げる要因になる．
 
-![mss](https://user-images.githubusercontent.com/67317828/217166245-1a1c9739-0cfa-4844-84f9-659218a9bf5e.gif)
+![mss](https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif)
+
 
 ## 従来の最適化と生成分野の最適化
 音楽音源分離は，過去10年間に集中的に研究されており，深層学習の登場によって飛躍的な進歩を遂げた．
