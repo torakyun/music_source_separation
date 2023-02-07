@@ -11,9 +11,8 @@
 また，音声の一部に雑音が生じてしまうことがあり，
 これらの要素が 人間の知覚評価を下げる要因になる．
 
-![mss](https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif)
-
-
+<img width="800" src="https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif">
+  
 ## 従来の最適化と生成分野の最適化
 音楽音源分離は，過去10年間に集中的に研究されており，深層学習の登場によって飛躍的な進歩を遂げた．
 深層学習による音楽音源分離では，
@@ -29,7 +28,7 @@ STFT損失の最小化を行うと，音声の周波数特性を学習するこ�
 敵対的損失の最小化は，出力系列が本物の音声である確率の最大化に基づいており，
 本物らしい生成を可能にする．
 
-<img width="500" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png">
+<img width="800" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png">
 
 ## 生成的最適化に基づく音楽音源分離
 そこで本研究では，生成的最適化に基づく音楽音源分離を実装し，
@@ -43,5 +42,5 @@ STFT損失の最小化を行うと，音声の周波数特性を学習するこ�
 敵対的損失を学習する際の不安定さを解消し，
 分離精度および音質汚染をさらに改善していくことが今後の課題である．
 
-<img width="500" alt="mos" src="https://user-images.githubusercontent.com/67317828/217165737-f65893ec-c37f-4c64-b1df-6c7952dbdba2.png">
-<img width="500" alt="sdr" src="https://user-images.githubusercontent.com/67317828/217165754-8ab9c279-5d66-47b0-bac3-e2868312cdea.png">
+<img width="800" alt="mos" src="https://user-images.githubusercontent.com/67317828/217165737-f65893ec-c37f-4c64-b1df-6c7952dbdba2.png">
+<img width="800" alt="sdr" src="https://user-images.githubusercontent.com/67317828/217165754-8ab9c279-5d66-47b0-bac3-e2868312cdea.png">
