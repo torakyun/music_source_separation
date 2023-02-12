@@ -304,7 +304,8 @@ def main():
     # Load models
     models = []
     for name in args.names:
-        model = load_model(args.models / (name + ".th")).to(args.device)
+        model_path = args.models / (name + ".th")
+        model = load_model(model_path).to(args.device)
         model.eval()
         models.append(model)
     samplerate = models[0].samplerate if models else args.samplerate
