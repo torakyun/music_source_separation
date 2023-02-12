@@ -79,7 +79,8 @@ def main(cfg):
     model_folder = out / "models"
     model_folder.mkdir(exist_ok=True, parents=True)
 
-    th.manual_seed(cfg.seed)
+    # th.manual_seed(cfg.seed)
+
     # Prevents too many threads to be started when running `museval` as it can be quite
     # inefficient on NUMA architectures.
     os.environ["OMP_NUM_THREADS"] = "1"

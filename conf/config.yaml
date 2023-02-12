@@ -15,7 +15,7 @@ name:
 
 # Training option
 restart: false
-seed: 42
+# seed: 42
 epochs: 360
 batch_size: 64
 batch_divide: 1

@@ -424,9 +424,9 @@ class Trainer(object):
     def _train_epoch(self, epoch):
         """Train model one epoch."""
         if self.config.device.world_size > 1:
-            if self.config.seed is not None:
-                sampler_epoch += self.config.seed * 1000
             sampler_epoch = self.pretrained_epoch + epoch
+            # if self.config.seed is not None:
+            #     sampler_epoch += self.config.seed * 1000
             self.sampler["train"].set_epoch(sampler_epoch)
         tq = tqdm(self.data_loader["train"],
                   ncols=120,
