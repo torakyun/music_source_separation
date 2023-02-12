@@ -153,20 +153,22 @@ def main():
 
         ref = wav.mean(0)
         wav = (wav - ref.mean()) / ref.std()
-        sources = apply_model(model, wav, shifts=args.shifts, split=args.split,
-                              overlap=args.overlap, progress=True)
+        sources = apply_model(model, wav[None], shifts=args.shifts, split=args.split,
+                              overlap=args.overlap, progress=True)[0]
         sources = sources * ref.std() + ref.mean()
 
-        track_folder = out / track.name.rsplit(".", 1)[0]
+        if track.name == "mixture.wav":
+            track_folder = out / track.parent.name
+        else:
+            track_folder = out / track.name.rsplit(".", 1)[0]
         track_folder.mkdir(exist_ok=True)
-        for source, name in zip(sources, model.sources):
+        for name, source in zip(model.sources, sources):
             source = source / max(1.01 * source.abs().max(), 1)
             if args.mp3 or not args.float32:
                 source = (source * 2**15).clamp_(-2**15, 2**15 - 1).short()
             source = source.cpu()
-            stem = str(track_folder / name)
             if args.mp3:
-                encode_mp3(source, stem + ".mp3",
+                encode_mp3(source, str(track_folder / f"{name}.mp3"),
                            bitrate=args.mp3_bitrate,
                            samplerate=model.samplerate,
                            channels=model.audio_channels,
