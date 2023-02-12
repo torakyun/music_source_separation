@@ -294,17 +294,27 @@ def main(cfg):
     model_name = f"{name}.th"
     if cfg.save_model:
         if cfg.device.rank == 0:
-            model.to("cpu")
+            model["generator"].to("cpu")
             assert trainer.best_state is not None, "model needs to train for 1 epoch at least."
-            model.load_state_dict(trainer.best_state)
-            save_model(model, quantizer, cfg, model_folder / model_name)
+            # model.load_state_dict(trainer.best_state)
+            model["generator"].load_state_dict(
+                trainer.model["generator"].module.state_dict() if cfg.device.world_size > 1 
+                else trainer.model["generator"].state_dict()
+            )
+            (model_folder / model_name).parent.mkdir(exist_ok=True, parents=True)
+            save_model(model["generator"], quantizer, cfg, model_folder / model_name)
         return
     elif cfg.save_state:
         model_name = f"{cfg.save_state}.th"
         if cfg.device.rank == 0:
-            model.to("cpu")
-            model.load_state_dict(trainer.best_state)
-            state = get_state(model, quantizer)
+            model["generator"].to("cpu")
+            # model.load_state_dict(trainer.best_state)
+            model["generator"].load_state_dict(
+                trainer.model["generator"].module.state_dict() if cfg.device.world_size > 1 
+                else trainer.model["generator"].state_dict()
+            )
+            state = get_state(model["generator"], quantizer)
+            (model_folder / model_name).parent.mkdir(exist_ok=True, parents=True)
             save_state(state, model_folder / model_name)
         return
 
