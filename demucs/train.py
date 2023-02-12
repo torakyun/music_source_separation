@@ -867,7 +867,6 @@ class Trainer(object):
                 sdr[idx].tolist())
         self.eval_loss["eval/sdr_all"] = np.array(
             list(self.eval_loss.values())).mean()
-        json.dump(self.eval_loss, open(eval_folder / "sdr.json", "w"))
 
     @torch.no_grad()
     def evaluate(self):
@@ -961,6 +960,7 @@ class Trainer(object):
             json.dump(stat, open(eval_folder / "sdr.json", "w"))
             mlflow.log_artifact(str(eval_folder / "sdr.json"))
         return model, stat
+        json.dump(self.eval_loss, open(track_folder / "sdr.json", "w"))
 
     def _check_save_interval(self, epoch):
         # save checkpoint(.th)
