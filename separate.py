@@ -15,8 +15,7 @@ import torchaudio as ta
 
 from demucs.audio import AudioFile, convert_audio_channels
 from demucs.apply import apply_model
-from demucs.pretrained import is_pretrained, load_pretrained
-from demucs.utils import load_model, load_v2_model
+from demucs.states import load_model
 
 
 def load_track(track, device, audio_channels, samplerate):
@@ -134,22 +133,8 @@ def main():
                         help="Bitrate of converted mp3.")
 
     args = parser.parse_args()
-    name = args.name + ".th"
-    model_path = args.models / name
-    if name == "demucs_v2":
-        model = load_v2_model(model_path)
-        model.samplerate = 44100
-        model.audio_channels = 2
-        model.sources = ["drums", "bass", "other", "vocals"]
-        model.segment = 4 * 10
-    elif model_path.is_file():
-        model = load_model(model_path)
-    else:
-        if is_pretrained(args.name):
-            model = load_pretrained(args.name)
-        else:
-            print(f"No pre-trained model {args.name}", file=sys.stderr)
-            sys.exit(1)
+    model_path = args.models / (args.name + ".th")
+    model = load_model(model_path)
     model.to(args.device)
 
     out = args.out / args.name

@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 from demucs.audio import AudioFile, convert_audio_channels, convert_audio
 from demucs.apply import apply_model
-from demucs.states import load_model, load_v2_model
+from demucs.states import load_model
 
 from distutils.version import LooseVersion
 is_pytorch_17plus = LooseVersion(torch.__version__) >= LooseVersion("1.7")
