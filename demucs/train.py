@@ -810,7 +810,7 @@ class Trainer(object):
             mix = convert_audio(mix, from_samplerate,
                                 self.config.dataset.samplerate, self.config.dataset.audio_channels)
             references = torch.stack(
-                [torch.from_numpy(track.targets[name].audio).t() for name in self.config.dataset.sources])
+                [torch.from_numpy(track.targets[name].audio).t().float() for name in self.config.dataset.sources])
             references = convert_audio(
                 references, from_samplerate, self.config.dataset.samplerate, self.config.dataset.audio_channels)
             track = {
