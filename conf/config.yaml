@@ -10,6 +10,9 @@ defaults:
   - override hydra/sweeper: optuna
   - override hydra/sweeper/sampler: tpe
 
+# Experience name
+name:
+
 # Training option
 restart: false
 seed: 42
@@ -59,7 +62,3 @@ hydra:
 mlflow:
   tracking_uri: ../out/mlruns
   experiment_name: music_source_separation
-# num:
-#   example1: 1
-#   example2: 2
-# name: ${num.example1}_${num.example2}

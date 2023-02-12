@@ -54,9 +54,9 @@ def get_name():
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(cfg):
     OmegaConf.set_struct(cfg, False)
-    try:
+    if cfg.name:
         name = cfg.name
-    except:
+    else:
         name = get_name()
         cfg.name = name
     print(f"Experiment {name}")
