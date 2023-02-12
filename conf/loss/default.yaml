@@ -6,7 +6,7 @@ mse:
   lambda: 0
 
 mag:
-  lambda: 0
+  lambda: 0 # 0.01
   params:
     fft_sizes: [1024, 2048, 512] # List of FFT size for STFT-based loss.
     hop_sizes: [120, 240, 50] # List of hop size for STFT-based loss
