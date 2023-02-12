@@ -116,7 +116,7 @@ class Trainer(object):
                 self.run_id = mlflow.active_run().info.run_id
         self.log_params_from_omegaconf_dict(self.config)
 
-        # checkpoint log
+        # show checkpoint's log
         best_loss = float("inf")
         for epoch, metrics in enumerate(self.metrics):
             logging = [
@@ -134,6 +134,7 @@ class Trainer(object):
             print("".join(logging))
             best_loss = metrics['best']
 
+        # training
         for epoch in range(len(self.metrics), self.config.epochs):
             begin = time.time()
 
@@ -834,10 +835,10 @@ class Trainer(object):
         )[0]
         estimates = estimates * track["std"] + track["mean"]
 
-        # save spectrogram
+        # save spectrogram(.png)
         references = track["targets"].to(self.device)
         second = self.config.dataset.samplerate * self.config.eval_second
-        self.log_and_save_spectrogram(
+        self.save_spectrogram(
             references.mean(dim=1)[..., :second],
             estimates.mean(dim=1)[..., :second],
             eval_folder
@@ -846,19 +847,17 @@ class Trainer(object):
         estimates = estimates.transpose(1, 2).cpu().numpy()
         references = references.transpose(1, 2).cpu().numpy()
 
-        # save wav
+        # save audio(.wav)
         track_folder = eval_folder / track["name"]
         track_folder.mkdir(exist_ok=True, parents=True)
         for name, estimate in zip(self.config.dataset.sources, estimates):
-            # wavfile.write(
-            #     str(track_folder / (f"{name}_epoch{epoch}.wav")), self.config.dataset.samplerate, estimate)
             wavfile.write(
                 str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
             # mlflow.log_artifact(
             #     str(track_folder / (name + ".wav")), "wav")
             # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
 
-        # cal SDR
+        # calculate SDR
         win = int(1. * self.config.dataset.samplerate)
         hop = int(1. * self.config.dataset.samplerate)
         sdr, isr, sir, sar = museval.evaluate(
@@ -964,7 +963,7 @@ class Trainer(object):
         return model, stat
 
     def _check_save_interval(self, epoch):
-        # save to file
+        # save checkpoint(.th)
         log_folder = self.outdir / "logs"
         metrics_path = log_folder / f"{self.config.name}.json"
         json.dump(self.metrics, open(metrics_path, "w"))
@@ -974,7 +973,8 @@ class Trainer(object):
         checkpoint_tmp_path = checkpoint_folder / f"{self.config.name}.th.tmp"
         self.save_checkpoint(checkpoint_tmp_path)
         checkpoint_tmp_path.rename(checkpoint_path)
-        # interval checkpoint
+
+        # save interval checkpoint(.th)
         if epoch and self.config.save_interval and epoch % self.config.save_interval == 0:
             checkpoint_path = checkpoint_folder / \
                 f"{self.config.name}_{epoch}.th"
