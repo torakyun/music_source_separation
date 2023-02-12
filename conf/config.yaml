@@ -23,6 +23,8 @@ shifts: 1
 split_valid: true
 overlap: 0.25
 adversarial_valid_length: 15000000
+valid_interval:
+valid_second: 600
 pretrained:
 
 # Other options

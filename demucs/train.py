@@ -143,7 +143,8 @@ class Trainer(object):
             train_loss, real_loss, fake_loss, model_size = self._train_epoch(
                 epoch)
             self.model["generator"].eval()
-            valid_loss = self._valid_epoch(epoch)
+            save_valid_audio = self.config.device.rank == 0 and epoch and self.config.valid_interval and epoch % self.config.valid_interval == 0
+            valid_loss = self._valid_epoch(epoch, save_valid_audio)
 
             # compressed model size
             ms = 0
@@ -659,7 +660,7 @@ class Trainer(object):
         return current_loss, current_real_loss, current_fake_loss, model_size
 
     @torch.no_grad()
-    def _valid_epoch(self, epoch):
+    def _valid_epoch(self, epoch, save_valid_audio=False):
         tq = tqdm(self.data_loader["valid"],
                   ncols=120,
                   desc=f"[{epoch:03d}] valid",
@@ -774,6 +775,31 @@ class Trainer(object):
                     real_loss + fake_loss)
                 if self.config.loss.feat_match["lambda"]:
                     self.valid_loss["valid/feature_matching_loss"] += fm_loss
+
+            # save valid audio
+            if save_valid_audio and idx == 0:
+                # valid folder
+                valid_folder = self.outdir / "valids" / \
+                    self.config.name / "interval" / f"{epoch}"
+                valid_folder.mkdir(exist_ok=True, parents=True)
+
+                # save spectrogram(.png)
+                second = self.config.dataset.samplerate * self.config.valid_second
+                self.save_spectrogram(
+                    sources.mean(dim=1)[..., :second],
+                    estimates.mean(dim=1)[..., :second],
+                    valid_folder
+                )
+
+                # save audio(.wav)
+                track_folder = valid_folder / "track"
+                track_folder.mkdir(exist_ok=True, parents=True)
+                for name, estimate in zip(self.config.dataset.sources, estimates.transpose(1, 2).cpu().numpy()):
+                    wavfile.write(
+                        str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
+                    # mlflow.log_artifact(
+                    #     str(track_folder / (name + ".wav")), "wav")
+                    # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
 
             del estimates, streams, sources
 
