@@ -139,6 +139,7 @@ class Trainer(object):
             begin = time.time()
 
             # train and valid
+            # train_loss, real_loss, fake_loss, valid_loss, model_size = 0, 0, 0, 0, 0
             self.model["generator"].train()
             train_loss, real_loss, fake_loss, model_size = self._train_epoch(
                 epoch)
@@ -671,6 +672,8 @@ class Trainer(object):
         self.valid_loss = defaultdict(float)
         model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
         for idx, streams in enumerate(tq):
+            # if idx > 0:
+            #     break
             # first five minutes to avoid OOM on --upsample models
             streams = streams[0, ..., :15_000_000]
             streams = streams.to(self.device)
