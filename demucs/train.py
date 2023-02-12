@@ -821,7 +821,8 @@ class Trainer(object):
             torch.save(track, data_dir / data_file)
 
         """Evaluate model one epoch."""
-        eval_folder = self.outdir / "evals" / f"{self.config.name}_{epoch}"
+        eval_folder = self.outdir / "evals" / \
+            self.config.name / "interval" / f"{epoch}"
         eval_folder.mkdir(exist_ok=True, parents=True)
 
         estimates = apply_model(
