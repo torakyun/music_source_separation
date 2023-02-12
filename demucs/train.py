@@ -298,7 +298,7 @@ class Trainer(object):
             if parent_name in show_names.keys():
                 mlflow.log_param(show_names[parent_name], element)
 
-    def write_figure(self, title, r, e, d, dir, xmax=None, vmax=None):
+    def _write_figure(self, title, ref, est, dif, dir, xmax=None, vmax=None):
         sources = ["drums", "bass", "other", "vocals"]
         targets = ["reference", "estimate", "difference"]
         # fig.suptitle(title, fontsize='xx-large')
@@ -314,18 +314,18 @@ class Trainer(object):
                     self.axes[i, j].set_xlim((0, xmax))
 
             # draw image
-            min = torch.min(torch.stack([r[i], e[i]]))
+            min = torch.min(torch.stack([ref[i], est[i]]))
             if min < 0:
-                r[i] = torch.clamp(r[i], min=min) - min
-                e[i] = torch.clamp(e[i], min=min) - min
+                ref[i] = torch.clamp(ref[i], min=min) - min
+                est[i] = torch.clamp(est[i], min=min) - min
             if not vmax:
-                vmax = torch.max(torch.stack([r[i], e[i], d[i]])).item()
+                vmax = torch.max(torch.stack([ref[i], est[i], dif[i]])).item()
             self.axes[i, 0].imshow(
-                r[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
+                ref[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             self.axes[i, 1].imshow(
-                e[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
+                est[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             im = self.axes[i, 2].imshow(
-                d[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
+                dif[i].cpu(), origin="lower", aspect="auto", cmap="gnuplot", vmin=0, vmax=vmax)
             self.fig.colorbar(im, ax=self.axes[i, 2])
 
         # save figure
@@ -339,7 +339,7 @@ class Trainer(object):
             self.axes[i, 2].images[-1].colorbar.remove()
         plt.cla()
 
-    def log_and_save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
+    def save_spectrogram(self, references, estimates, dir, stft_params=None, mel_params=None, window="hann"):
         # Spectrogram params
         stft_params = {
             "n_fft": 2048,
@@ -379,13 +379,13 @@ class Trainer(object):
         del references_stft, estimates_stft
 
         # STFT spectrogram
-        self.write_figure(
-            "STFT", references_mag, estimates_mag, differences_stft, dir)
+        self._write_figure(
+            "STFT", references_mag, estimates_mag, differences_stft, dir, vmax=5)
         del differences_stft
 
         # Magnitude spectrogram
         differences_mag = (references_mag - estimates_mag).abs()
-        self.write_figure(
+        self._write_figure(
             "Magnitude Spectrogram", references_mag, estimates_mag, differences_mag, dir, vmax=5)
         del differences_mag
 
@@ -393,27 +393,27 @@ class Trainer(object):
         references_log_mag = torch.log(references_mag)
         estimates_log_mag = torch.log(estimates_mag)
         differences_log_mag = (references_log_mag - estimates_log_mag).abs()
-        self.write_figure(
+        self._write_figure(
             "Log-Scale Magnitude Spectrogram", references_log_mag, estimates_log_mag, differences_log_mag, dir)
         del references_log_mag, estimates_log_mag, differences_log_mag
 
         # Mel spectrogram
         melmat = librosa.filters.mel(**mel_params)
-        melmat = torch.from_numpy(melmat).to(references_mag.device).double()
+        melmat = torch.from_numpy(melmat).to(references_mag.device)
         references_mel = torch.clamp(torch.matmul(
             melmat, references_mag), min=1e-7)
         estimates_mel = torch.clamp(torch.matmul(
             melmat, estimates_mag), min=1e-7)
         differences_mel = (references_mel - estimates_mel).abs()
-        self.write_figure(
-            "Mel Spectrogram", references_mel, estimates_mel, differences_mel, dir)
+        self._write_figure(
+            "Mel Spectrogram", references_mel, estimates_mel, differences_mel, dir, vmax=1)
         del melmat, differences_mel
 
         # Log-scale Mel spectrogram
         references_log_mel = torch.log(references_mel)
         estimates_log_mel = torch.log(estimates_mel)
         differences_log_mel = (references_log_mel - estimates_log_mel).abs()
-        self.write_figure(
+        self._write_figure(
             "Log-Scale Mel Spectrogram", references_log_mel, estimates_log_mel, differences_log_mel, dir)
 
     def _train_epoch(self, epoch):
