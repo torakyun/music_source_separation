@@ -199,10 +199,13 @@ class Trainer(object):
                     f"fake={fake_loss:.4f} "]
             print("".join(logging))
 
-        # evaluate and save best model
+        # save best model
         if self.config.device.world_size > 1:
             distributed.barrier()
-        model, stat = self.evaluate()
+        model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
+        del self.model
+        model.load_state_dict(self.best_state)
+        # stat = self.evaluate(model)
         model.to("cpu")
         if self.config.device.rank == 0:
             save_model(model, self.quantizer, self.config,
@@ -210,7 +213,7 @@ class Trainer(object):
 
         mlflow.end_run()
         # self.writer.close()
-        return stat
+        # return stat
 
     def save_checkpoint(self, checkpoint_path):
         """Save checkpoint.
@@ -867,100 +870,98 @@ class Trainer(object):
                 sdr[idx].tolist())
         self.eval_loss["eval/sdr_all"] = np.array(
             list(self.eval_loss.values())).mean()
-
-    @torch.no_grad()
-    def evaluate(self):
-        """Evaluate model one epoch."""
-        eval_folder = self.outdir / "evals" / self.config.name
-        eval_folder.mkdir(exist_ok=True, parents=True)
-
-        # we load tracks from the original musdb set
-        if self.config.dataset.musdbhq:
-            path = self.config.dataset.musdbhq
-            is_wav = True
-        else:
-            path = self.config.dataset.musdb
-            is_wav = False
-        test_set = musdb.DB(path, subsets=["test"], is_wav=is_wav)
-        track_indexes = list(range(len(test_set)))
-        src_rate = 44100  # hardcoded for now...
-        all_metrics = defaultdict(list)
-        model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
-        del self.model
-        model.load_state_dict(self.best_state)
-        if self.config.device.eval_cpu:
-            device = "cpu"
-            model.to(device)
-        model.eval()
-        for index in tqdm(range(self.config.device.rank, len(track_indexes), self.config.device.world_size), file=sys.stdout):
-            track = test_set.tracks[track_indexes[index]]
-
-            mix = torch.from_numpy(track.audio).t().float()
-            mix = mix.to(self.device)
-            ref = mix.mean(dim=0)  # mono mixture
-            mix = (mix - ref.mean()) / ref.std()
-            mix = convert_audio(
-                mix, src_rate, model.samplerate, model.audio_channels)
-            estimates = apply_model(
-                model, mix[None],
-                shifts=self.config.shifts,
-                split=self.config.split_valid,
-                overlap=self.config.overlap)[0]
-            estimates = estimates * ref.std() + ref.mean()
-            references = torch.stack(
-                [torch.from_numpy(track.targets[name].audio).t() for name in model.sources])
-            references = convert_audio(
-                references, src_rate, model.samplerate, model.audio_channels)
-
-            # save spectrogram
-            if track_indexes[index] == 1:
-                references = references.to(self.device)
-                second = self.config.dataset.samplerate * self.config.eval_second
-                self.log_and_save_spectrogram(
-                    references.mean(dim=1)[..., :second],
-                    estimates.mean(dim=1)[..., :second],
-                    eval_folder
-                )
-
-            references = references.transpose(1, 2).cpu().numpy()
-            estimates = estimates.transpose(1, 2).cpu().numpy()
-
-            # save wav
-            if track_indexes[index] == 1:
-                track_folder = eval_folder / track.name
-                track_folder.mkdir(exist_ok=True, parents=True)
-                for name, estimate in zip(model.sources, estimates):
-                    wavfile.write(
-                        str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
-                    # mlflow.log_artifact(
-                    #     str(track_folder / (name + ".wav")), "wav")
-                    # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
-            # cal SDR
-            win = int(1. * model.samplerate)
-            hop = int(1. * model.samplerate)
-            sdr, isr, sir, sar = museval.evaluate(
-                references, estimates, win=win, hop=hop)
-            for idx, source in enumerate(model.sources):
-                all_metrics[source].append(np.nanmedian(sdr[idx].tolist()))
-        json.dump(all_metrics, open(eval_folder /
-                                    f"{self.config.device.rank}.json", "w"))
-        if self.config.device.world_size > 1:
-            distributed.barrier()
-
-        stat = defaultdict(list)
-        if self.config.device.rank == 0:
-            for rank in range(self.config.device.world_size):
-                eval_file = eval_folder / f"{rank}.json"
-                parts = json.load(open(eval_file))
-                for source, sdr in parts.items():
-                    stat[source] += sdr
-                eval_file.unlink()
-            stat = {source: np.nanmedian(sdr) for source, sdr in stat.items()}
-            stat["all"] = np.array(list(stat.values())).mean()
-            json.dump(stat, open(eval_folder / "sdr.json", "w"))
-            mlflow.log_artifact(str(eval_folder / "sdr.json"))
-        return model, stat
         json.dump(self.eval_loss, open(track_folder / "sdr.json", "w"))
+
+    # @torch.no_grad()
+    # def evaluate(self, model):
+    #     """Evaluate best model."""
+    #     eval_folder = self.outdir / "evals" / self.config.name
+    #     eval_folder.mkdir(exist_ok=True, parents=True)
+
+    #     # we load tracks from the original musdb set
+    #     if self.config.dataset.musdbhq:
+    #         path = self.config.dataset.musdbhq
+    #         is_wav = True
+    #     else:
+    #         path = self.config.dataset.musdb
+    #         is_wav = False
+    #     test_set = musdb.DB(path, subsets=["test"], is_wav=is_wav)
+    #     track_indexes = list(range(len(test_set)))
+    #     src_rate = 44100  # hardcoded for now...
+    #     all_metrics = defaultdict(list)
+    #     if self.config.device.eval_cpu:
+    #         device = "cpu"
+    #         model.to(device)
+    #     model.eval()
+    #     for index in tqdm(range(self.config.device.rank, len(track_indexes), self.config.device.world_size), file=sys.stdout):
+    #         track = test_set.tracks[track_indexes[index]]
+
+    #         mix = torch.from_numpy(track.audio).t().float()
+    #         mix = mix.to(self.device)
+    #         ref = mix.mean(dim=0)  # mono mixture
+    #         mix = (mix - ref.mean()) / ref.std()
+    #         mix = convert_audio(
+    #             mix, src_rate, model.samplerate, model.audio_channels)
+    #         estimates = apply_model(
+    #             model, mix[None],
+    #             shifts=self.config.shifts,
+    #             split=self.config.split_valid,
+    #             overlap=self.config.overlap)[0]
+    #         estimates = estimates * ref.std() + ref.mean()
+    #         references = torch.stack(
+    #             [torch.from_numpy(track.targets[name].audio).t().float() for name in model.sources])
+    #         references = convert_audio(
+    #             references, src_rate, model.samplerate, model.audio_channels)
+
+    #         # save spectrogram(.png)
+    #         if track_indexes[index] == 1:
+    #             references = references.to(self.device)
+    #             second = self.config.dataset.samplerate * self.config.eval_second
+    #             self.log_and_save_spectrogram(
+    #                 references.mean(dim=1)[..., :second],
+    #                 estimates.mean(dim=1)[..., :second],
+    #                 eval_folder
+    #             )
+
+    #         references = references.transpose(1, 2).cpu().numpy()
+    #         estimates = estimates.transpose(1, 2).cpu().numpy()
+
+    #         # save audio(.wav)
+    #         if track_indexes[index] == 1:
+    #             track_folder = eval_folder / track.name
+    #             track_folder.mkdir(exist_ok=True, parents=True)
+    #             for name, estimate in zip(model.sources, estimates):
+    #                 wavfile.write(
+    #                     str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
+    #                 # mlflow.log_artifact(
+    #                 #     str(track_folder / (name + ".wav")), "wav")
+    #                 # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
+
+    #         # calculate SDR
+    #         win = int(1. * model.samplerate)
+    #         hop = int(1. * model.samplerate)
+    #         sdr, isr, sir, sar = museval.evaluate(
+    #             references, estimates, win=win, hop=hop)
+    #         for idx, source in enumerate(model.sources):
+    #             all_metrics[source].append(np.nanmedian(sdr[idx].tolist()))
+    #     json.dump(all_metrics, open(eval_folder /
+    #                                 f"{self.config.device.rank}.json", "w"))
+    #     if self.config.device.world_size > 1:
+    #         distributed.barrier()
+
+    #     stat = defaultdict(list)
+    #     if self.config.device.rank == 0:
+    #         for rank in range(self.config.device.world_size):
+    #             eval_file = eval_folder / f"{rank}.json"
+    #             parts = json.load(open(eval_file))
+    #             for source, sdr in parts.items():
+    #                 stat[source] += sdr
+    #             eval_file.unlink()
+    #         stat = {source: np.nanmedian(sdr) for source, sdr in stat.items()}
+    #         stat["all"] = np.array(list(stat.values())).mean()
+    #         json.dump(stat, open(eval_folder / "sdr.json", "w"))
+    #         mlflow.log_artifact(str(eval_folder / "sdr.json"))
+    #     return stat
 
     def _check_save_interval(self, epoch):
         # save checkpoint(.th)

@@ -313,12 +313,13 @@ def main(cfg):
         done = log_folder / f"{name}.done"
         if done.exists():
             done.unlink()
-    stat = trainer.run()
-    print(stat, "\n--------------------------")
+    trainer.run()
+    # stat = trainer.run()
+    # print(stat, "\n--------------------------")
     if cfg.device.rank == 0:
         print("done")
         done.write_text("done")
-    return stat["all"]
+    # return stat["all"]
 
 
 if __name__ == "__main__":
