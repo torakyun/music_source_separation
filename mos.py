@@ -1,8 +1,8 @@
-import sys
-import json
+# Copyright (c) 2023 torakyun
+#  MIT License (https://opensource.org/licenses/MIT)
+
 from pathlib import Path
 import argparse
-from tqdm import tqdm
 import numpy as np
 import pandas as pd
 import pprint
@@ -10,6 +10,8 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 def main():
+    parser = argparse.ArgumentParser("mss.mos",
+                                     description="Make MOS result table")
     parser.add_argument("-f", "--folder",
                         type=Path,
                         default=Path("../mos/csv"),
@@ -44,7 +46,6 @@ def main():
                 setting = (df["model"] == model) & (df["target"] == target)
                 choices[name][model][target] = df[setting][name].to_numpy().tolist()
                 choices[name][model]["all"] += choices[name][model][target]
-    # pp.pprint(choices)
 
     # make scores
     scores = {
@@ -60,20 +61,9 @@ def main():
                 choice = np.array(choices[name][model][target])
                 scores[name][model][target] = (
                     round(choice.mean(), 3), round(choice.std() / choice.shape[0]**0.5, 3))
-    # pp.pprint(scores)
 
     # make latex
     length = max(map(len, models))
-    # print()
-    # for name in names:
-    #     print(name, end="\n\n")
-    #     for model in models:
-    #         print(model.ljust(length, " "), end="")
-    #         for target in ["all"]+targets:
-    #             score = scores[name][model][target]
-    #             print(f" & {score[0]}±{score[1]}", end="")
-    #         print("\\\\")
-    #     print()
     print()
     for name in names:
         print(name, end="\n\n")
@@ -92,5 +82,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    parser = argparse.ArgumentParser("mss.mos",
-                                     description="Make MOS result table")

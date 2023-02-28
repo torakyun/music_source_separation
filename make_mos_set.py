@@ -1,3 +1,6 @@
+# Copyright (c) 2023 torakyun
+#  MIT License (https://opensource.org/licenses/MIT)
+
 import sys
 import json
 import random
@@ -8,12 +11,14 @@ import musdb
 import torch
 import torchaudio
 
-from demucs.audio import convert_audio
-from demucs.states import load_model
-from demucs.utils import human_seconds
+from mss.audio import convert_audio
+from mss.states import load_model
+from mss.utils import human_seconds
 
 
 def main():
+    parser = argparse.ArgumentParser("mss.make_mos_set",
+                                     description="Separate test set for MOS")
     parser.add_argument("-n", "--names",
                         required=True,
                         nargs="*",
@@ -35,7 +40,7 @@ def main():
     parser.add_argument("-m", "--musdb",
                         type=Path,
                         default=Path("../musdb18hq"),
-                        help="Load musdb folder.")
+                        help="Path to musdb.")
     parser.add_argument("--not_wav",
                         action='store_false',
                         dest="is_wav",
@@ -43,11 +48,11 @@ def main():
     parser.add_argument("--models",
                         type=Path,
                         default=Path("../out/models"),
-                        help="Load pretrained models folder.")
+                        help="Path to pretrained models.")
     parser.add_argument("--out",
                         type=Path,
                         default=Path("../mos"),
-                        help="Store audio folder.")
+                        help="Path to output folder.")
     parser.add_argument("-d",
                         "--device",
                         default="cuda" if torch.cuda.is_available() else "cpu",
@@ -218,5 +223,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    parser = argparse.ArgumentParser("mss.make_mos_set",
-                                     description="Separate test set for MOS")
