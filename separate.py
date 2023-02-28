@@ -82,9 +82,9 @@ def main():
                         default=[], help='Path to tracks')
     parser.add_argument("-n",
                         "--name",
-                        default="demucs_quantized",
-                        help="Model name. See README.md for the list of pretrained models. "
-                             "Default is demucs_quantized.")
+                        required=True,
+                        type=str,
+                        help='Model names')
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("-o",
                         "--out",

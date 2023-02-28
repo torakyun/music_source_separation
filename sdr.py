@@ -5,17 +5,13 @@
 # LICENSE file in the root folderectory of this source tree.
 
 import argparse
-from hashlib import sha256
 import sys
 from pathlib import Path
-import subprocess
 import json
 import numpy as np
 from tqdm import tqdm
 
-import julius
 import torch
-import torchaudio as ta
 import librosa
 import musdb
 import museval
@@ -193,11 +189,10 @@ def main():
                                      description="Evaluate the sources for the given tracks")
 
     # Test data params
-    parser.add_argument("-m",
-                        "--musdb",
+    parser.add_argument("-m", "--musdb",
                         type=Path,
-                        default=None,
-                        help="Path to musdb root")
+                        default=Path("../musdb18hq"),
+                        help="Path to musdb.")
     parser.add_argument("--not_wav",
                         action='store_false',
                         dest="is_wav",
@@ -237,9 +232,7 @@ def main():
     parser.add_argument("--shifts",
                         default=0,
                         type=int,
-                        help="Number of random shifts for equivariant stabilization."
-                        "Increase separation time but improves quality for Demucs. 10 was used "
-                        "in the original paper.")
+                        help="Number of random shifts for equivariant stabilization.")
     parser.add_argument("--overlap",
                         default=0.25,
                         type=float,
@@ -363,8 +356,6 @@ def main():
                 sdr_all += scores[name][target][-1]
             sdr_all /= (idx + 1)
             scores[name]["all"].append(sdr_all)
-            # print()
-            # print(scores[name])
 
     # Save SDR(.json)
     scores = {name: {target: np.nanmedian(scores[name][target]) for target in targets} for name in names}
