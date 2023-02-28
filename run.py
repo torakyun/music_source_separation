@@ -15,8 +15,8 @@ import re
 
 import torch as th
 
-from demucs.utils import free_port
-from demucs.__main__ import get_name
+from mss.utils import free_port
+from mss.__main__ import get_name
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
             kwargs['stdin'] = sp.DEVNULL
             kwargs['stdout'] = sp.DEVNULL
             # We keep stderr to see tracebacks from children.
-        tasks.append(sp.Popen(["python3", "-m", "demucs"] +
+        tasks.append(sp.Popen(["python3", "-m", "mss"] +
                               args + [f"device.rank={gpu}"], **kwargs))
         tasks[-1].rank = gpu
 

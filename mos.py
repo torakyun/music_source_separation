@@ -10,8 +10,6 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 def main():
-    parser = argparse.ArgumentParser("demucs.mos",
-                                     description="Make MOS result table")
     parser.add_argument("-f", "--folder",
                         type=Path,
                         default=Path("../mos/csv"),
@@ -94,3 +92,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    parser = argparse.ArgumentParser("mss.mos",
+                                     description="Make MOS result table")

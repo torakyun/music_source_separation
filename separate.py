@@ -13,9 +13,9 @@ import julius
 import torch as th
 import torchaudio as ta
 
-from demucs.audio import AudioFile, convert_audio_channels
-from demucs.apply import apply_model
-from demucs.states import load_model
+from mss.audio import AudioFile, convert_audio_channels
+from mss.apply import apply_model
+from mss.states import load_model
 
 
 def load_track(track, device, audio_channels, samplerate):
@@ -76,7 +76,7 @@ def encode_mp3(wav, path, bitrate=320, samplerate=44100, channels=2, verbose=Fal
 
 
 def main():
-    parser = argparse.ArgumentParser("demucs.separate",
+    parser = argparse.ArgumentParser("mss.separate",
                                      description="Separate the sources for the given tracks")
     parser.add_argument("tracks", nargs='+', type=Path,
                         default=[], help='Path to tracks')

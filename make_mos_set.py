@@ -14,8 +14,6 @@ from demucs.utils import human_seconds
 
 
 def main():
-    parser = argparse.ArgumentParser("demucs.make_mos_set",
-                                     description="Separate test set for MOS")
     parser.add_argument("-n", "--names",
                         required=True,
                         nargs="*",
@@ -220,3 +218,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    parser = argparse.ArgumentParser("mss.make_mos_set",
+                                     description="Separate test set for MOS")

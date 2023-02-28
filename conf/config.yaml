@@ -55,7 +55,7 @@ hydra:
     sampler:
       seed: 123
     direction: maximize
-    study_name: demucs
+    study_name: mss
     storage: null
     n_trials: 10
     n_jobs: 1

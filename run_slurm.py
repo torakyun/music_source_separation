@@ -16,7 +16,7 @@ import time
 
 import torch as th
 
-from demucs.utils import free_port
+from mss.utils import free_port
 
 
 def main():
@@ -49,7 +49,7 @@ def main():
             kwargs['stdout'] = sp.DEVNULL
             # We keep stderr to see tracebacks from children.
         tasks.append(
-            sp.Popen(["python3", "-m", "demucs"] + args +
+            sp.Popen(["python3", "-m", "mss"] + args +
                      ["--rank", str(rank_offset + gpu)], **kwargs))
         tasks[-1].rank = rank_offset + gpu
 
