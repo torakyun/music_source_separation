@@ -120,7 +120,7 @@ Please refer to [here](setup.md).
 
 # License
 
-Please refer to [here](LICENSE).
+Please refer to [here](../../LICENSE).
 This system was created by duplicating [Implementation of Hybrid Demucs](https://github.com/torakyun/music_source_separation/tree/64ed2cb029301743b2714b3c8fe930c00945842c).
 We are very grateful for the great contribution to music source separation.
 We would like to thank the following people for their significant contributions to music source separation.
