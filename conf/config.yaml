@@ -2,7 +2,7 @@ defaults:
   - _self_
   - device: default
   - dataset: default
-  - model/generator: demucs_v2
+  - model/generator: hdemucs
   - model/discriminator: parallel_wavegan
   - optimizer/generator: default
   - optimizer/discriminator: default
