@@ -13,7 +13,7 @@ However, current technology has not been able to completely eliminate problems s
 In addition, noise may be generated in some of the sounds.
 These factors reduce the subjective evaluation.
 
-<img width="800" src="https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif">
+<p align="center"><img width="800" src="https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif">
   
 ## Music source separation based on generative optimization
 Music source separation has been intensively studied over the past decade, and has made a quantum leap with the advent of deep learning.
@@ -40,7 +40,7 @@ In addition to waveform loss, STFT loss and adversarial loss are minimized simul
 By better learning not only the proximity as waveforms, but also the difference in timbre, the
 separation accuracy and subjective evaluation of sound pollution can be improved.
 
-<img width="800" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png">
+<p align="center"><img width="800" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png"></p>
 
 ## Validation results for generative optimization
 
@@ -75,7 +75,7 @@ Please refer to [Least Squares GAN](https://arxiv.org/pdf/1611.04076.pdf).
 
 The percentage of votes for each category, weighted by the grade (38 subjects in this study).
 
-<img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/221777752-251a920e-d3b4-49a0-ac2d-cbf9872f522f.png">
+<p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/221777752-251a920e-d3b4-49a0-ac2d-cbf9872f522f.png"></p>
 
 **Objective Index - [Source-to-Distortion Ratio (SDR)](https://hal.inria.fr/inria-00544230/document)**
 
@@ -100,8 +100,8 @@ The reason for the reduced separation accuracy may be that the discriminator tha
 Possible countermeasures include making the discriminator lighter and introducing techniques to suppress over-learning.
 Eliminating instability in learning adversarial losses is a future challenge.
 
-<img width="800" alt="mos" src="https://user-images.githubusercontent.com/67317828/221762798-6f628f2f-f2c5-4d20-b70d-242bf8e42203.png ">
-<img width="800" alt="sdr" src="https://user-images.githubusercontent.com/67317828/221762357-ec2ab102-bb3c-460b-8165-cc3dde6eb93a.png ">
+<p align="center"><img width="800" alt="mos" src="https://user-images.githubusercontent.com/67317828/221762798-6f628f2f-f2c5-4d20-b70d-242bf8e42203.png "></p>
+<p align="center"><img width="800" alt="sdr" src="https://user-images.githubusercontent.com/67317828/221762357-ec2ab102-bb3c-460b-8165-cc3dde6eb93a.png "></p>
 
 Since music is created to be listened to by humans, the
 It is important to improve the subjective evaluation of music source separation systems.
