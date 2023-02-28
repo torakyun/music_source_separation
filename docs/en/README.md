@@ -1,6 +1,6 @@
 # Verification of music source separation based on generative optimization
 
-[日本語](../setup.md) | English
+[日本語](../../README.md) | English
 
 ## Overview and current status of music source separation
 Music source separation refers to a technique for decomposing a musical piece, once synthesized, into individual musical notes.
@@ -116,7 +116,7 @@ It is also necessary to set up a system that allows for the active testing of su
 
 # Usage
 
-Please refer to [here](docs/setup.md).
+Please refer to [here](setup.md).
 
 # License
 
