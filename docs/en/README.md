@@ -34,14 +34,14 @@ Please refer to [Parallel WaveGAN](https://arxiv.org/pdf/1910.11480.pdf).
 Please refer to [Least Squares GAN](https://arxiv.org/pdf/1611.04076.pdf).
 
 **Subjective metric - Mean Opinion Score (MOS)**.  
-The percentage of votes for each category, weighted by the grade (38 subjects in this study).
+The percentage of votes for each category, weighted by the grade (38 people in this study).
 
 <p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/222974185-9fdfbdeb-7159-4753-9e67-5961b4c15e2a.png"></p>
 
 **Objective metric - [Source-to-Distortion Ratio (SDR)](https://hal.inria.fr/inria-00544230/document)**  
 Measures the degree of distortion from the correct solution by comparing signals.
-It has been commonly used for easy and uniform evaluation, but it does not correlate well with human hearing.
-However, it has been reported that it does not correlate well with human hearing, and its validity is questionable.
+It has been commonly used for easy and uniform evaluation.
+However, it has been reported that [it does not correlate well with human hearing](https://ieeexplore.ieee.org/document/7760550), and its validity is questionable.
 The validity of this method is questionable.
 
 Optimization with the addition of the STFT loss (at multiple scales and resolutions) has been shown to improve the overall subjective evaluation of separation accuracy and sound contamination.
