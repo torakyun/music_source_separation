@@ -36,7 +36,7 @@ Please refer to [Least Squares GAN](https://arxiv.org/pdf/1611.04076.pdf).
 **Subjective metric - Mean Opinion Score (MOS)**.  
 The percentage of votes for each category, weighted by the grade (38 subjects in this study).
 
-<p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/221777752-251a920e-d3b4-49a0-ac2d-cbf9872f522f.png"></p>
+<p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/222974185-9fdfbdeb-7159-4753-9e67-5961b4c15e2a.png"></p>
 
 **Objective metric - [Source-to-Distortion Ratio (SDR)](https://hal.inria.fr/inria-00544230/document)**  
 Measures the degree of distortion from the correct solution by comparing signals.
@@ -50,8 +50,8 @@ the contribution of the STFT loss could be seen.
 Although only sound contamination of bass was slightly reduced.
 We believe that this is due to the removal of high-frequency components that should not have been present. High-frequency components are components that form the detailed shape of waveform. The elimination of the components that were used to make the waveforms add up may have slightly disturbed the consistency of the waveforms and degraded the sound contamination. The optimization with additional adversarial loss resulted in lower separation accuracy, but improved the sound contamination of the bass. The reason for the reduced separation accuracy may be that the discriminator that calculates the adversarial loss has overlearned. Possible countermeasures include making the discriminator lighter and introducing techniques to suppress over-learning. Eliminating instability in learning the adversarial loss is a future challenge.
 
-<p align="center"><img width="600" alt="mos" src="https://user-images.githubusercontent.com/67317828/221762798-6f628f2f-f2c5-4d20-b70d-242bf8e42203.png "></p>
-<p align="center"><img width="600" alt="sdr" src="https://user-images.githubusercontent.com/67317828/221762357-ec2ab102-bb3c-460b-8165-cc3dde6eb93a.png "></p>
+<p align="center"><img width="600" alt="mos_en" src="https://user-images.githubusercontent.com/67317828/222974424-568ea64a-fd10-4d1d-8497-d05959fe9a83.png"></p>
+<p align="center"><img width="600" alt="sdr_en" src="https://user-images.githubusercontent.com/67317828/222974429-c2b52a4b-f3e4-4b58-adfb-b98f64ce0ae0.png"></p>
 
 Since music is created to be listened to by humans, it is important to improve the subjective evaluation of music source separation systems. The subjective evaluation results of the music source separation based on generative optimization implemented in this study exceeded those of conventional methods in many aspects. It is hoped that the optimization will be reviewed in the future and lead to further quality improvement. However, while subjective evaluation is necessary, in practice, it is common that only objective evaluation is performed. In the future, it is also necessary to set up a system that allows for the active testing of subjective evaluation by establishing clear criteria for subjective evaluation, creating a platform, and so on.
 
