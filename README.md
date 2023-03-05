@@ -12,9 +12,8 @@
 対象の音源自体の欠損といった問題を完全に消すことはできていない。
 また、音の一部に雑音が生じてしまうことがあり、
 これらの要素が、主観評価を下げる要因になる。
+<p align="center"><img width="600" src="https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif"></p>
 
-<p align="center"><img width="800" src="https://user-images.githubusercontent.com/67317828/217169110-5bfc0204-bf78-4a7c-9a9f-8bb44e5d6c31.gif"></p>
-  
 ## 生成的最適化に基づく音楽音源分離
 音楽音源分離は、過去10年間に集中的に研究されており、
 深層学習の登場によって飛躍的な進歩を遂げた。
@@ -39,49 +38,40 @@ STFT損失の最小化を行うと、音の周波数特性を学習すること�
 波形損失に加えて、STFT 損失と敵対的損失を同時に最小化する。
 波形としての近さだけでなく、音色の違いがより良く学習されることで、
 分離精度と音質汚染の主観評価向上が期待できる。
-
-<p align="center"><img width="800" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png"></p>
+<p align="center"><img width="600" alt="architecture3" src="https://user-images.githubusercontent.com/67317828/217165468-09999921-727f-4427-999d-d29c7e9862b8.png"></p>
 
 ## 生成的最適化の検証結果
 
-* **データセット - [MUSDB-HQ](https://sigsep.github.io/datasets/musdb.html#musdb18-compressed-stems)**
+* **データセット - [MUSDB-HQ](https://sigsep.github.io/datasets/musdb.html#musdb18-compressed-stems)**  
+音楽音源分離用データセットでは最大規模のもの。
+データ拡張を施して使用した。
 
-    音楽音源分離用データセットでは最大規模のもの。
-    データ拡張を施して使用した。
+* **生成器 - [Hybrid Demucs](https://arxiv.org/pdf/2111.03600.pdf)**  
+時間領域の End-to-End モデル Demucs を、
+ハイブリッド領域に拡張したもの。
 
-* **生成器 - [Hybrid Demucs](https://arxiv.org/pdf/2111.03600.pdf)**
+* **識別器 - [StyleMelGAN](https://arxiv.org/pdf/2011.01557.pdf) の識別器**  
+軽量かつ高品質な生成を実現。
 
-    時間領域の End-to-End モデル Demucs を、
-    ハイブリッド領域に拡張したもの。
+* **波形損失 - 平均絶対誤差 （Mean Absolute Error:MAE）**  
+Hybrid Demucs で用いられている損失関数。
 
-* **識別器 - [StyleMelGAN](https://arxiv.org/pdf/2011.01557.pdf) の識別器**
+* **STFT損失 - スペクトログラムの差分**  
+今回は、```（リニアスケール＋パワースケール）×３つの解像度``` で求める。
+[Parallel WaveGAN](https://arxiv.org/pdf/1910.11480.pdf) を参照。
 
-    軽量かつ高品質な生成を実現。
+* **敵対的損失 - 二乗誤差**  
+[Least Squares GAN](https://arxiv.org/pdf/1611.04076.pdf) を参照。
 
-* **波形損失 - 平均絶対誤差 （Mean Absolute Error:MAE）**
+* **主観指標 - 平均オピニオン評点（Mean Opinion Score: MOS）**  
+各カテゴリへの投票率を評点で重み付けしたもの。（今回の被験者は38名）
+<p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/221777752-251a920e-d3b4-49a0-ac2d-cbf9872f522f.png"></p>
 
-    Hybrid Demucs で用いられている損失関数。
-
-* **STFT損失 - スペクトログラムの差分**
-
-    ```（リニアスケール＋パワースケール）×３つの解像度``` で求める。
-    [Parallel WaveGAN](https://arxiv.org/pdf/1910.11480.pdf) を参照。
-
-* **敵対的損失 - 二乗誤差**
-
-    [Least Squares GAN](https://arxiv.org/pdf/1611.04076.pdf) を参照。
-
-* **主観指標 - 平均オピニオン評点（Mean Opinion Score: MOS）**
-
-    各カテゴリへの投票率を評点で重み付けしたもの。（今回の被験者は38名）
-    <p align="center"><img width="600" alt="mos_item" src="https://user-images.githubusercontent.com/67317828/221777752-251a920e-d3b4-49a0-ac2d-cbf9872f522f.png"></p>
-
-* **客観指標 - [音源対歪比（Source-to-Distortion Ratio: SDR）](https://hal.inria.fr/inria-00544230/document)**
-
-    信号比較により正解からの歪みの程度を計る。
-    手軽で統一的な評価のために一般的に用いられてきたが、
-    人間の聴覚とはあまり相関を示さないという報告もされており、
-    妥当性については疑問が残る。
+* **客観指標 - [音源対歪比（Source-to-Distortion Ratio: SDR）](https://hal.inria.fr/inria-00544230/document)**  
+信号比較により正解からの歪みの程度を計る。
+手軽で統一的な評価のために一般的に用いられてきたが、
+[人間の聴覚とはあまり相関を示さない](https://ieeexplore.ieee.org/document/7760550)という報告もされており、
+妥当性については疑問が残る。
 
 （複数スケール・複数解像度の）STFT損失を加えて最適化を行うと、
 分離精度と音質汚染の主観評価を、全体的に向上させることが確認できた。
@@ -97,10 +87,9 @@ STFT損失が寄与していることが見てとれた。
 分離精度を低下させた原因は、
 敵対的損失を計算する識別器が過学習をしてしまったことにあると思われる。
 対策としては、識別器の軽量化や、過学習を抑える技術の導入などが考えられる。
-敵対的損失を学習する際の不安定さを解消することが今後の課題である。
-
-<p align="center"><img width="800" alt="mos" src="https://user-images.githubusercontent.com/67317828/221762798-6f628f2f-f2c5-4d20-b70d-242bf8e42203.png"></p>
-<p align="center"><img width="800" alt="sdr" src="https://user-images.githubusercontent.com/67317828/221762357-ec2ab102-bb3c-460b-8165-cc3dde6eb93a.png"></p>
+敵対的損失を学習する際の不安定さを解消することが今後の課題である。  
+<p align="center"><img width="600" alt="mos" src="https://user-images.githubusercontent.com/67317828/221762798-6f628f2f-f2c5-4d20-b70d-242bf8e42203.png"></p>
+<p align="center"><img width="600" alt="sdr" src="https://user-images.githubusercontent.com/67317828/221762357-ec2ab102-bb3c-460b-8165-cc3dde6eb93a.png"></p>
 
 音楽は人間に聴かれることを想定して制作されているため、
 音楽音源分離システムの主観評価を向上させることは重要である。
