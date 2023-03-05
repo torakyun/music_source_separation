@@ -5,8 +5,6 @@ from pathlib import Path
 import argparse
 import numpy as np
 import pandas as pd
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
 
 
 def main():
