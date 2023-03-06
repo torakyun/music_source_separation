@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 
-# from tensorboardX import SummaryWriter
 import mlflow
 from omegaconf import DictConfig, ListConfig
 
@@ -92,7 +91,6 @@ class Trainer(object):
         self.config = config
         self.device = device
         self.outdir = Path(config.out)
-        # self.writer = SummaryWriter(self.outdir / "tensorboard" / f"{self.config.name}")
         self.train_loss = defaultdict(float)
         self.valid_loss = defaultdict(float)
         self.eval_loss = defaultdict(float)
@@ -204,15 +202,12 @@ class Trainer(object):
         model = self.model["generator"].module if self.config.device.world_size > 1 else self.model["generator"]
         del self.model
         model.load_state_dict(self.best_state)
-        # stat = self.evaluate(model)
         model.to("cpu")
         if self.config.device.rank == 0:
             save_model(model, self.quantizer, self.config,
                        self.outdir / "models" / f"{self.config.name}.th")
 
         mlflow.end_run()
-        # self.writer.close()
-        # return stat
 
     def save_checkpoint(self, checkpoint_path):
         """Save checkpoint.
@@ -335,7 +330,6 @@ class Trainer(object):
         title = title.replace(" ", "_")
         path = Path(dir) / f"{title}.png"
         self.fig.savefig(path)
-        # mlflow.log_figure(self.fig, f"figure/{title}.png")
 
         # remove colorbar and clear axis
         for i, _ in enumerate(sources):
@@ -715,7 +709,7 @@ class Trainer(object):
                 log_stft_loss = total_log_stft_loss / (index + 1)
                 self.valid_loss["valid/stft_loss"] += stft_loss
                 self.valid_loss["valid/log_stft_loss"] += log_stft_loss
-                gen_loss += self.config.loss.stft["lambda"] * \
+                gen_loss += self.config.loss.cac["lambda"] * \
                     ((stft_loss + log_stft_loss))
 
             # mel spectrogram loss
@@ -797,9 +791,6 @@ class Trainer(object):
                 for name, estimate in zip(self.config.dataset.sources, estimates.transpose(1, 2).cpu().numpy()):
                     wavfile.write(
                         str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
-                    # mlflow.log_artifact(
-                    #     str(track_folder / (name + ".wav")), "wav")
-                    # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
 
             del estimates, streams, sources
 
@@ -882,9 +873,6 @@ class Trainer(object):
         for name, estimate in zip(self.config.dataset.sources, estimates):
             wavfile.write(
                 str(track_folder / (name + ".wav")), self.config.dataset.samplerate, estimate)
-            # mlflow.log_artifact(
-            #     str(track_folder / (name + ".wav")), "wav")
-            # self.writer.add_audio(name, torch.from_numpy(estimate), epoch)
 
         # calculate SDR
         win = int(1. * self.config.dataset.samplerate)
@@ -915,7 +903,6 @@ class Trainer(object):
 
     def _check_eval_interval(self, epoch):
         if epoch and self.config.eval_interval and epoch % self.config.eval_interval == 0:
-            # if epoch > 0 and self.metrics[-2]["best"] > self.metrics[-1]["best"]:
             self._eval_epoch(epoch)
 
     def _check_log_interval(self, epoch):
@@ -923,6 +910,3 @@ class Trainer(object):
         mlflow.log_metrics(self.train_loss, epoch)
         mlflow.log_metrics(self.valid_loss, epoch)
         mlflow.log_metrics(self.eval_loss, epoch)
-        # self.writer.add_scalars('train_loss', self.train_loss, epoch)
-        # self.writer.add_scalars('valid_loss', self.valid_loss, epoch)
-        # self.writer.add_scalars('eval_loss', self.eval_loss, epoch)

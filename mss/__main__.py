@@ -315,11 +315,8 @@ def main(cfg):
 
     # run training loop
     trainer.run()
-    # stat = trainer.run()
-    # print(stat, "\n--------------------------")
     if cfg.device.rank == 0:
         print("done")
-    # return stat["all"]
 
 
 if __name__ == "__main__":
