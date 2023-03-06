@@ -1,6 +1,6 @@
 # 使い方
 
-日本語 | [English](en/setup.md)
+日本語 | [English](../en/setup.md)
 
 ## 必須要件
 
@@ -44,7 +44,8 @@
       en/  # 英語版
          README.md  # README
          setup.md  # 環境構築マニュアル
-      setup.md  # 環境構築マニュアル
+      ja/  # 日本語版
+         setup.md  # 環境構築マニュアル
    mss/  # 音楽音源分離の実装
       layers/  # ニューラルネットワーク層の実装
          __init__.py  # モジュールトップ

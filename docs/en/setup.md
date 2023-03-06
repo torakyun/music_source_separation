@@ -1,6 +1,6 @@
 # Usage
 
-[日本語](../setup.md) | English
+[日本語](../ja/setup.md) | English
 
 ## Prerequisites
 
@@ -46,7 +46,8 @@ $ pip install -r requirements.txt
       en/  # English version
          README.md  # README
          setup.md  # Setup manual
-      setup.md  # Setup manual (Japanese version)
+      ja/  # Japanese version
+         setup.md  # Setup manual
    mss/  # Implementation of music source separation
       layers/  # Implementation of the neural network layers
          __init__.py  # Top of the module
