@@ -13,5 +13,5 @@ Session.vim
 /separated
 /metadata
 /.vscode
-/.DS_Store
+.DS_Store
 # /.gitignore
