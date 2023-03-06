@@ -1,5 +1,5 @@
 # Auxiliary Loss
-l1:
+mae:
   lambda: 1
 
 mse:

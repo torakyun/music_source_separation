@@ -36,8 +36,9 @@ show_names = {
     "epochs": "epochs",
     "dataset.samplerate": "sr",
     "dataset.audio_channels": "ch",
-    "loss.l1.lambda": "l1",
     "loss.mag.lambda": "mag",
+    "loss.mae.lambda": "mae",
+    "loss.mse.lambda": "mse",
     "loss.stft.lambda": "stft",
     "loss.mel.lambda": "mel",
     "loss.mfcc.lambda": "mfcc",
@@ -453,16 +454,16 @@ class Trainer(object):
                 # initialize
                 gen_loss = 0.0
 
-                # l1 loss
-                if self.config.loss.l1["lambda"]:
-                    l1_loss = self.criterion["l1"](
+                # mae loss
+                if self.config.loss.mae["lambda"]:
+                    mae_loss = self.criterion["mae"](
                         estimates, sources[start::self.config.batch_divide])
-                    l1_loss /= self.config.batch_divide
-                    self.train_loss["train/l1_loss"] += l1_loss.item()
-                    gen_loss += self.config.loss.l1["lambda"] * l1_loss
-                    del l1_loss
-                # print("l1_loss: ", time.time() - start_t)
-                # gpulife("l1_loss")
+                    mae_loss /= self.config.batch_divide
+                    self.train_loss["train/mae_loss"] += mae_loss.item()
+                    gen_loss += self.config.loss.mae["lambda"] * mae_loss
+                    del mae_loss
+                # print("mae_loss: ", time.time() - start_t)
+                # gpulife("mae_loss")
                 # start_t = time.time()
 
                 # multi-resolution magnitude loss
@@ -676,11 +677,11 @@ class Trainer(object):
             # initialize
             gen_loss = 0.0
 
-            # l1 loss
-            if self.config.loss.l1["lambda"]:
-                l1_loss = self.criterion["l1"](estimates, sources).item()
-                self.valid_loss["valid/l1_loss"] += l1_loss
-                gen_loss += self.config.loss.l1["lambda"] * l1_loss
+            # mae loss
+            if self.config.loss.mae["lambda"]:
+                mae_loss = self.criterion["mae"](estimates, sources).item()
+                self.valid_loss["valid/mae_loss"] += mae_loss
+                gen_loss += self.config.loss.mae["lambda"] * mae_loss
 
             # multi-resolution magnitude loss
             if self.config.loss.mag["lambda"]:

@@ -196,8 +196,8 @@ def main(cfg):
 
     # define criterions
     criterion = {}
-    if cfg.loss.l1["lambda"]:
-        criterion["l1"] = nn.L1Loss()
+    if cfg.loss.mae["lambda"]:
+        criterion["mae"] = nn.L1Loss()
     if cfg.loss.mse["lambda"]:
         criterion["mse"] = nn.MSELoss()
     if cfg.loss.mag["lambda"]:
