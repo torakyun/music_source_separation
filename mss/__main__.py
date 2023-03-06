@@ -22,13 +22,13 @@ from .wav import get_wav_datasets, get_musdb_wav_datasets
 from . import models
 from . import optimizers
 
-from .losses import DiscriminatorAdversarialLoss
-from .losses import FeatureMatchLoss
-from .losses import GeneratorAdversarialLoss
+from .losses import MultiResolutionMultiScaleSTFTLoss
+from .losses import MultiResolutionMultiScaleCACLoss
 from .losses import MelSpectrogramLoss
 from .losses import MFCCLoss
-from .losses import MultiResolutionMagnitudeLoss
-from .losses import MultiResolutionSTFTLoss
+from .losses import GeneratorAdversarialLoss
+from .losses import DiscriminatorAdversarialLoss
+from .losses import FeatureMatchLoss
 
 from omegaconf import OmegaConf
 import hydra
@@ -200,12 +200,12 @@ def main(cfg):
         criterion["mae"] = nn.L1Loss()
     if cfg.loss.mse["lambda"]:
         criterion["mse"] = nn.MSELoss()
-    if cfg.loss.mag["lambda"]:
-        criterion["mag"] = MultiResolutionMagnitudeLoss(
-            **cfg.loss.mag.params).to(device)
     if cfg.loss.stft["lambda"]:
-        criterion["stft"] = MultiResolutionSTFTLoss(
+        criterion["stft"] = MultiResolutionMultiScaleSTFTLoss(
             **cfg.loss.stft.params).to(device)
+    if cfg.loss.cac["lambda"]:
+        criterion["cac"] = MultiResolutionMultiScaleCACLoss(
+            **cfg.loss.cac.params).to(device)
     if cfg.loss.mel["lambda"]:
         criterion["mel"] = MelSpectrogramLoss(**cfg.loss.mel.params).to(device)
     if cfg.loss.mfcc["lambda"]:

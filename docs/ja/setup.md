@@ -53,8 +53,8 @@
       losses/  # 損失関数の実装
          __init__.py  # モジュールトップ
          adversarial_loss.py  # 敵対的損失・識別器損失
+         cac_loss.py  # CAC損失
          feat_match_loss.py  # 特徴一致損失
-         mag_loss.py  # マグニチュードスペクトログラム損失
          mel_loss.py  # メルスペクトログラム損失
          mfcc_loss.py  # MFCC損失
          stft_loss.py  # STFT損失

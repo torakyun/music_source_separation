@@ -5,7 +5,7 @@ mae:
 mse:
   lambda: 0
 
-mag:
+stft:
   lambda: 0 # 0.01
   params:
     fft_sizes: [1024, 2048, 512] # List of FFT size for STFT-based loss.
@@ -13,7 +13,7 @@ mag:
     win_lengths: [600, 1200, 240] # List of window length for STFT-based loss.
     window: "hann_window" # Window function for STFT-based loss
 
-stft:
+cac:
   lambda: 0
   params:
     fft_sizes: [1024, 2048, 512] # List of FFT size for STFT-based loss.

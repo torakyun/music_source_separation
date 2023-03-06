@@ -36,10 +36,10 @@ show_names = {
     "epochs": "epochs",
     "dataset.samplerate": "sr",
     "dataset.audio_channels": "ch",
-    "loss.mag.lambda": "mag",
     "loss.mae.lambda": "mae",
     "loss.mse.lambda": "mse",
     "loss.stft.lambda": "stft",
+    "loss.cac.lambda": "cac",
     "loss.mel.lambda": "mel",
     "loss.mfcc.lambda": "mfcc",
     "loss.adversarial.lambda": "adv",
@@ -466,34 +466,34 @@ class Trainer(object):
                 # gpulife("mae_loss")
                 # start_t = time.time()
 
-                # multi-resolution magnitude loss
-                if self.config.loss.mag["lambda"]:
-                    mag_loss, log_mag_loss = self.criterion["mag"](
-                        estimates, sources[start::self.config.batch_divide])
-                    mag_loss /= self.config.batch_divide
-                    log_mag_loss /= self.config.batch_divide
-                    self.train_loss["train/magnitude_spectrogram_loss"] += mag_loss.item()
-                    self.train_loss["train/log_magnitude_spectrogram_loss"] += log_mag_loss.item()
-                    gen_loss += self.config.loss.mag["lambda"] * (
-                        mag_loss + log_mag_loss)
-                    del mag_loss, log_mag_loss
-                # print("mag_loss: ", time.time() - start_t)
-                # gpulife("mag_loss")
-                # start_t = time.time()
-
-                # multi-resolution sfft loss
+                # multi-resolution multi-scale stft loss
                 if self.config.loss.stft["lambda"]:
-                    stft_loss, log_stft_loss = self.criterion["stft"](
+                    linear_scale_stft_loss, log_scale_stft_loss = self.criterion["stft"](
                         estimates, sources[start::self.config.batch_divide])
-                    stft_loss /= self.config.batch_divide
-                    log_stft_loss /= self.config.batch_divide
-                    self.train_loss["train/stft_loss"] += stft_loss.item()
-                    self.train_loss["train/log_stft_loss"] += log_stft_loss.item()
+                    linear_scale_stft_loss /= self.config.batch_divide
+                    log_scale_stft_loss /= self.config.batch_divide
+                    self.train_loss["train/linear_scale_stft_loss"] += linear_scale_stft_loss.item()
+                    self.train_loss["train/log_scale_stft_loss"] += log_scale_stft_loss.item()
                     gen_loss += self.config.loss.stft["lambda"] * (
-                        stft_loss + log_stft_loss)
-                    del stft_loss, log_stft_loss
+                        linear_scale_stft_loss + log_scale_stft_loss)
+                    del linear_scale_stft_loss, log_scale_stft_loss
                 # print("stft_loss: ", time.time() - start_t)
                 # gpulife("stft_loss")
+                # start_t = time.time()
+
+                # multi-resolution multi-scale cac loss
+                if self.config.loss.cac["lambda"]:
+                    linear_scale_cac_loss, log_scale_cac_loss = self.criterion["cac"](
+                        estimates, sources[start::self.config.batch_divide])
+                    linear_scale_cac_loss /= self.config.batch_divide
+                    log_scale_cac_loss /= self.config.batch_divide
+                    self.train_loss["train/linear_scale_cac_loss"] += linear_scale_cac_loss.item()
+                    self.train_loss["train/log_scale_cac_loss"] += log_scale_cac_loss.item()
+                    gen_loss += self.config.loss.cac["lambda"] * (
+                        linear_scale_cac_loss + log_scale_cac_loss)
+                    del linear_scale_cac_loss, log_scale_cac_loss
+                # print("cac_loss: ", time.time() - start_t)
+                # gpulife("cac_loss")
                 # start_t = time.time()
 
                 # mel spectrogram loss
@@ -683,35 +683,35 @@ class Trainer(object):
                 self.valid_loss["valid/mae_loss"] += mae_loss
                 gen_loss += self.config.loss.mae["lambda"] * mae_loss
 
-            # multi-resolution magnitude loss
-            if self.config.loss.mag["lambda"]:
-                total_mag_loss, total_log_mag_loss = 0, 0
-                for index in range(sources.size(0)):
-                    mag_loss, log_mag_loss = self.criterion["mag"](
-                        estimates[index], sources[index])
-                    total_mag_loss += mag_loss.item()
-                    total_log_mag_loss += log_mag_loss.item()
-                mag_loss = total_mag_loss / (index + 1)
-                log_mag_loss = total_log_mag_loss / (index + 1)
-                self.valid_loss["valid/magnitude_spectrogram_loss"] += mag_loss
-                self.valid_loss["valid/log_magnitude_spectrogram_loss"] += log_mag_loss
-                gen_loss += self.config.loss.mag["lambda"] * \
-                    ((mag_loss + log_mag_loss))
-
-            # multi-resolution sfft loss
+            # multi-resolution multi-scale stft loss
             if self.config.loss.stft["lambda"]:
-                total_stft_loss, total_log_stft_loss = 0, 0
+                total_linear_scale_stft_loss, total_log_scale_stft_loss = 0, 0
                 for index in range(sources.size(0)):
-                    stft_loss, log_stft_loss = self.criterion["stft"](
+                    linear_scale_stft_loss, log_scale_stft_loss = self.criterion["stft"](
                         estimates[index], sources[index])
-                    total_stft_loss += stft_loss.item()
-                    total_log_stft_loss += log_stft_loss.item()
-                stft_loss = total_stft_loss / (index + 1)
-                log_stft_loss = total_log_stft_loss / (index + 1)
-                self.valid_loss["valid/stft_loss"] += stft_loss
-                self.valid_loss["valid/log_stft_loss"] += log_stft_loss
+                    total_linear_scale_stft_loss += linear_scale_stft_loss.item()
+                    total_log_scale_stft_loss += log_scale_stft_loss.item()
+                linear_scale_stft_loss = total_linear_scale_stft_loss / (index + 1)
+                log_scale_stft_loss = total_log_scale_stft_loss / (index + 1)
+                self.valid_loss["valid/linear_scale_stft_loss"] += linear_scale_stft_loss
+                self.valid_loss["valid/log_scale_stft_loss"] += log_scale_stft_loss
+                gen_loss += self.config.loss.stft["lambda"] * \
+                    ((linear_scale_stft_loss + log_scale_stft_loss))
+
+            # multi-resolution multi-scale cac loss
+            if self.config.loss.cac["lambda"]:
+                total_linear_scale_cac_loss, total_log_scale_cac_loss = 0, 0
+                for index in range(sources.size(0)):
+                    linear_scale_cac_loss, log_scale_cac_loss = self.criterion["cac"](
+                        estimates[index], sources[index])
+                    total_linear_scale_cac_loss += linear_scale_cac_loss.item()
+                    total_log_scale_cac_loss += log_scale_cac_loss.item()
+                linear_scale_cac_loss = total_linear_scale_cac_loss / (index + 1)
+                log_scale_cac_loss = total_log_scale_cac_loss / (index + 1)
+                self.valid_loss["valid/linear_scale_cac_loss"] += linear_scale_cac_loss
+                self.valid_loss["valid/log_scale_cac_loss"] += log_scale_cac_loss
                 gen_loss += self.config.loss.cac["lambda"] * \
-                    ((stft_loss + log_stft_loss))
+                    ((linear_scale_cac_loss + log_scale_cac_loss))
 
             # mel spectrogram loss
             if self.config.loss.mel["lambda"]:

@@ -55,8 +55,8 @@ $ pip install -r requirements.txt
       losses/  # Implementation of the loss functions
          __init__.py  # Top of the module
          adversarial_loss.py  # Adversarial loss
+         cac_loss.py  # CAC loss
          feat_match_loss.py  # Feature matching loss
-         mag_loss.py  # Magnitude spectrogram loss
          mel_loss.py  # Mel spectrogram loss
          mfcc_loss.py  # MFCC loss
          stft_loss.py  # STFT loss
