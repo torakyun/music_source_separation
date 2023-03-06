@@ -1,15 +1,15 @@
 # Copyright (c) 2023 torakyun
 #  MIT License (https://opensource.org/licenses/MIT)
 
-from .demucs import *  # NOQA
-from .hdemucs import *  # NOQA
-from .demucs_v2 import *  # NOQA
-from .tasnet import *  # NOQA
+from .generator.demucs import *  # NOQA
+from .generator.hdemucs import *  # NOQA
+from .generator.demucs_v2 import *  # NOQA
+from .generator.tasnet import *  # NOQA
 
-from .parallel_wavegan_discriminator import *  # NOQA
-from .hifigan_discriminator import *  # NOQA
-from .melgan_discriminator import *  # NOQA
-from .style_melgan_discriminator import *  # NOQA
+from .discriminator.parallel_wavegan import *  # NOQA
+from .discriminator.hifigan import *  # NOQA
+from .discriminator.melgan import *  # NOQA
+from .discriminator.style_melgan import *  # NOQA
 
 import torch
 
@@ -49,8 +49,8 @@ class Discriminators(torch.nn.Module):
         elif separate == "full":
             in_channels = 1
         if name == "HiFiGANMultiScaleMultiPeriodDiscriminator":
-            params["scale_discriminator_params"]["in_channels"] = in_channels
-            params["period_discriminator_params"]["in_channels"] = in_channels
+            params["scale_params"]["in_channels"] = in_channels
+            params["period_params"]["in_channels"] = in_channels
         else:
             params["in_channels"] = in_channels
 

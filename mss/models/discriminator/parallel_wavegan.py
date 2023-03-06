@@ -8,9 +8,9 @@ import math
 
 import torch
 
-from ..layers import Conv1d
-from ..layers import Conv1d1x1
-from ..layers import WaveNetResidualBlock as ResidualBlock
+from ...layers import Conv1d
+from ...layers import Conv1d1x1
+from ...layers import WaveNetResidualBlock as ResidualBlock
 
 
 class ParallelWaveGANDiscriminator(torch.nn.Module):

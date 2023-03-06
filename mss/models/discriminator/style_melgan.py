@@ -9,8 +9,8 @@ import logging
 import numpy as np
 import torch
 
-from ..layers import PQMF
-from .melgan_discriminator import MelGANDiscriminator as BaseDiscriminator
+from ...layers import PQMF
+from .melgan import MelGANDiscriminator as BaseDiscriminator
 
 
 class StyleMelGANDiscriminator(torch.nn.Module):

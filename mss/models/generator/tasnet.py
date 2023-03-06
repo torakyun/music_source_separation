@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..states import capture_init
+from ...states import capture_init
 
 EPS = 1e-8
 

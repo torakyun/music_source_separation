@@ -15,12 +15,12 @@ from torch import nn
 from torch.nn import functional as F
 import tqdm
 
-from .models.demucs import Demucs
-from .models.hdemucs import HDemucs
-from .models.demucs_v2 import DemucsV2
+from .models.generator.demucs_v2 import DemucsV2
+from .models.generator.demucs import Demucs
+from .models.generator.hdemucs import HDemucs
 from .utils import center_trim
 
-Model = tp.Union[Demucs, HDemucs, DemucsV2]
+Model = tp.Union[DemucsV2, Demucs, HDemucs]
 
 
 class BagOfModels(nn.Module):

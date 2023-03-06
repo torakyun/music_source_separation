@@ -8,8 +8,8 @@ import julius
 from torch import nn
 from torch.nn import functional as F
 
-from ..states import capture_init
-from ..utils import center_trim
+from ...states import capture_init
+from ...utils import center_trim
 from .demucs import BLSTM, rescale_module
 
 
